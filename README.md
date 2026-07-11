@@ -2,19 +2,24 @@
 
 A from-scratch chess engine powered by an AlphaZero-style neural network, Monte Carlo Tree Search (MCTS), and an A3C reinforcement learning training pipeline. Built in Python with PyTorch and Pygame.
 
+**🔗 Live demo: [alphaz0.onrender.com](https://alphaz0.onrender.com)** — play against AlphaZ0 or a friend (Pass & Play) directly in the browser, no install required.
+
+> The web version currently plays at roughly **100 Elo** (chess.com scale) — an early checkpoint, well below the engine's ceiling. Strength scales directly with training: see [How Training Makes the Bot Stronger](#how-training-makes-the-bot-stronger) for how Elo climbs as policy loss drops.
+
 ---
 
 ## Table of Contents
 
 1. [What Is This?](#what-is-this)
-2. [How It Works — The Big Picture](#how-it-works--the-big-picture)
-3. [Architecture Deep Dive](#architecture-deep-dive)
-4. [File-by-File Breakdown](#file-by-file-breakdown)
-5. [How Training Makes the Bot Stronger](#how-training-makes-the-bot-stronger)
-6. [Training Logs — What They Tell You](#training-logs--what-they-tell-you)
-7. [Running the Project](#running-the-project)
-8. [Project Structure](#project-structure)
-9. [Dependencies](#dependencies)
+2. [Live Demo](#live-demo)
+3. [How It Works — The Big Picture](#how-it-works--the-big-picture)
+4. [Architecture Deep Dive](#architecture-deep-dive)
+5. [File-by-File Breakdown](#file-by-file-breakdown)
+6. [How Training Makes the Bot Stronger](#how-training-makes-the-bot-stronger)
+7. [Training Logs — What They Tell You](#training-logs--what-they-tell-you)
+8. [Running the Project](#running-the-project)
+9. [Project Structure](#project-structure)
+10. [Dependencies](#dependencies)
 
 ---
 
@@ -23,9 +28,25 @@ A from-scratch chess engine powered by an AlphaZero-style neural network, Monte 
 AlphaZ0 is a self-learning chess bot inspired by DeepMind's AlphaZero. It learns to play chess purely by playing against itself — no hardcoded openings, no Stockfish, no human game databases. It starts knowing only the rules of chess, and gets better every time you train it.
 
 The bot has three brain layers working together:
+```
 Rules (chesseng.py)  →  Search (mcts.py)  →  Intuition (NeuralNet.py)
-↑                                              ↓
-└────────── Training (Train.py) teaches this ─┘
+        ↑                                              ↓
+        └────────── Training (Train.py) teaches this ─┘
+```
+
+---
+
+## Live Demo
+
+**[alphaz0.onrender.com](https://alphaz0.onrender.com)**
+
+A lightweight browser interface for the engine — built with plain HTML/CSS/JS (chess.js for rules, chessboard.js for the board), deployed as a static site on Render.
+
+- **Pass & Play** — two people share the board locally
+- **vs AlphaZ0** — play against the bot as either color
+- Click or drag to move, legal moves highlight automatically, king's square flags red when in check, and pawn promotions let you choose Queen, Rook, Bishop, or Knight
+
+The demo's listed Elo (currently ~100, chess.com scale) reflects the strength of whichever checkpoint is currently wired up to the frontend — it updates as training progresses. A full write-up of what Elo ranges correspond to which policy loss values is in [How Training Makes the Bot Stronger](#how-training-makes-the-bot-stronger).
 
 ---
 
@@ -65,16 +86,20 @@ After each iteration the bot is slightly smarter. It plays better games. Those b
 ## Architecture Deep Dive
 
 ### Neural Network — NeuralNet.py
-Input: (18, 8, 8) tensor — 18 planes describing the boardPlane 0-5   : White pieces  (P R N B Q K — one plane each)
+
+```
+Input: (18, 8, 8) tensor — 18 planes describing the board
+Plane 0-5   : White pieces  (P R N B Q K — one plane each)
 Plane 6-11  : Black pieces  (P R N B Q K — one plane each)
 Plane 12-15 : Castling rights (wKS, wQS, bKS, bQS)
 Plane 16    : En passant target square
 Plane 17    : Side to move (1.0 = white, 0.0 = black)
-┌─────────────────────────────────┐
+
+     ┌─────────────────────────────────┐
      │  Stem Conv (18 → 128 channels)  │
      │  BatchNorm + ReLU               │
      └──────────────┬──────────────────┘
-                    │
+                     │
      ┌──────────────▼──────────────────┐
      │   Residual Trunk (10 blocks)    │
      │   Each block: Conv→BN→ReLU      │
@@ -92,6 +117,7 @@ Plane 17    : Side to move (1.0 = white, 0.0 = black)
 Move probabilities      Position score
 over all 64×64          in [-1.0, 1.0]
 from-to pairs
+```
 
 Move encoding: every possible `(from_square, to_square)` pair maps to a flat index: `row*512 + col*64 + end_row*8 + end_col` giving 4096 buckets. Illegal moves get masked out after the network runs.
 
@@ -107,24 +133,29 @@ Each node in the tree stores:
 | P | Prior probability from policy head |
 
 Selection uses PUCT:
+```
 score(s,a) = Q(s,a) + C_puct × P(s,a) × √(ΣN) / (1 + N(s,a))
+```
 C_puct = 1.5 balances exploitation (high Q) vs exploration (high P, low N).
 
 Dirichlet noise is added to root priors (α=0.3, ε=0.25) so the bot always explores a little even when confident — critical for generating diverse training data.
 
 ### A3C Training — Train.py
+
+```
 Main Thread                     Worker Threads (×4)
 ──────────────                  ──────────────────────
 play_one_game()                 Clone global weights
-└─ MCTS × N_games            Run short rollout
-└─ store (s,π,z)             Compute GAE advantages
-Actor + Critic + Entropy loss
+  └─ MCTS × N_games              Run short rollout
+  └─ store (s,π,z)               Compute GAE advantages
+                                  Actor + Critic + Entropy loss
 Replay Buffer                   Push grads → global model
-└─ sample batch
-train_on_batch()
-└─ policy loss: -Σ π_mcts × log π_net
-└─ value loss:  MSE(v, z)
-└─ entropy bonus
+  └─ sample batch
+  train_on_batch()
+    └─ policy loss: -Σ π_mcts × log π_net
+    └─ value loss:  MSE(v, z)
+    └─ entropy bonus
+```
 
 ---
 
@@ -168,7 +199,7 @@ Converts a `GameState` into an `(18, 8, 8)` float32 numpy array. Each plane is a
 - `A3CWorker` — background thread that clones weights, runs rollout, computes GAE advantages, pushes gradients to global model
 - `train_on_batch()` — one supervised gradient step: policy cross-entropy + value MSE + entropy regularization
 
-### chesmain.py — The UI
+### chesmain.py — The Desktop UI
 
 - Menu screen with Pass & Play vs AlphaZ0 options, color picker for bot mode
 - Board flips automatically when playing as Black
@@ -177,36 +208,47 @@ Converts a `GameState` into an `(18, 8, 8)` float32 numpy array. Each plane is a
 - Loads `checkpoints/chess_net_best.pt` automatically, falls back to random moves if missing
 - Controls: Z = undo (2 plies in bot mode), R/Esc = return to menu
 
+### FE.html — The Web UI
+
+A single-file browser interface mirroring `chesmain.py`'s Pass & Play / vs AlphaZ0 modes, deployed at [alphaz0.onrender.com](https://alphaz0.onrender.com). Uses chess.js for move legality and chessboard.js for rendering; click or drag to move, with legal-move highlighting, check detection, and a promotion picker (Queen/Rook/Bishop/Knight).
+
 ---
 
 ## How Training Makes the Bot Stronger
 
 ### The Improvement Cycle
 
+```
 Iteration 1:    Random network → random-ish MCTS → terrible games
-Terrible games → train on terrible data
-Network learns: at least move pieces toward center
+                Terrible games → train on terrible data
+                Network learns: at least move pieces toward center
+
 Iteration 10:   Slightly better network → slightly better MCTS
-Better MCTS finds better moves → better game data
-Network learns basic tactics
+                Better MCTS finds better moves → better game data
+                Network learns basic tactics
+
 Iteration 100:  Network knows tactics → MCTS finds combinations
-Better combinations → richer training data
-Network learns strategy
+                Better combinations → richer training data
+                Network learns strategy
+
 Iteration 1000+: Network understands positional play
-MCTS can plan 10+ moves ahead
-Bot becomes genuinely strong
+                 MCTS can plan 10+ moves ahead
+                 Bot becomes genuinely strong
+```
 
 ### Policy Loss as Strength Indicator
 
-| Policy Loss | Meaning |
-|---|---|
-| ~8.3 | Completely random (log of 4096 possible moves) |
-| ~6.0 | Learned basic move preferences |
-| ~4.0 | Decent tactical awareness |
-| ~2.0 | Strong play |
-| ~0.5 | Near master level |
+| Policy Loss | Meaning | Approx. Elo (chess.com scale) |
+|---|---|---|
+| ~8.3 | Completely random (log of 4096 possible moves) | < 100 |
+| ~6.0 | Learned basic move preferences | ~100–300 |
+| ~4.0 | Decent tactical awareness | ~600–900 |
+| ~2.0 | Strong play | ~1400–1700 |
+| ~0.5 | Near master level | 2000+ |
 
-Your bot after 20 iterations sits around 6.3 — above random, with MCTS doing most of the heavy lifting. Every 100 additional iterations with enough games per iteration moves this lower.
+The live demo's current checkpoint sits around policy loss 6.3, roughly **100 Elo** on chess.com's scale — above random, with MCTS doing most of the heavy lifting. Every 100 additional training iterations with enough games per iteration moves this lower, and the demo's rating will be updated as stronger checkpoints get deployed.
+
+*(These Elo mappings are approximate — derived from typical policy-loss-to-strength correlations in AlphaZero-style engines, not from head-to-head rated games against chess.com opponents. Treat them as a rough guide to relative strength, not a certified rating.)*
 
 ### What Each Loss Component Teaches
 
@@ -245,6 +287,7 @@ python Train.py --games 50 --sims 200 --iters 1000 --workers 4 --resume checkpoi
 
 ## Training Logs — What They Tell You
 
+```
 policy_loss = 6.30   ← network move guesses (lower = smarter)
 value_loss  = 0.004  ← position evaluation accuracy (lower = better)
 entropy     = 7.5    ← move diversity (too low = collapse, too high = random)
@@ -253,6 +296,7 @@ critic_loss = 0.000  ← A3C value baseline (needs terminal states to learn)
 buffer_size = 8590   ← total stored positions (more = better batches)
 lr          = 0.0005 ← learning rate (cosine decay over time)
 elapsed     = 342s   ← time per iteration
+```
 
 Warning signs:
 
@@ -266,9 +310,13 @@ Warning signs:
 ## Running the Project
 
 ```bash
-# Play the game
+# Play the game locally (desktop UI)
 cd C:\Users\yourname\Downloads\Chess
 python chesmain.py
+
+# Or just open FE.html in a browser for the web UI —
+# no install needed, or visit the hosted version:
+# https://alphaz0.onrender.com
 
 # Quick test training (30 min)
 python Train.py --games 5 --sims 30 --iters 20
@@ -286,8 +334,11 @@ python Train.py --mode eval --eval-model checkpoints/chess_net_best.pt --eval-ga
 ---
 
 ## Project Structure
+
+```
 Chess/
-├── chesmain.py       ← Pygame UI, menu, bot integration
+├── chesmain.py       ← Pygame desktop UI, menu, bot integration
+├── FE.html           ← Browser UI (deployed at alphaz0.onrender.com)
 ├── chesseng.py       ← Chess rules, move generation, game state
 ├── NeuralNet.py      ← Neural network (policy + value heads)
 ├── mcts.py           ← Monte Carlo Tree Search with PUCT
@@ -298,8 +349,10 @@ Chess/
 │   ├── chess_net_final.pt      ← Last model after training
 │   └── chess_net_iter_XXXX.pt  ← Per-iteration snapshots
 └── Image/
-├── wP.png  wR.png  wN.png  wB.png  wQ.png  wK.png
-└── bP.png  bR.png  bN.png  bB.png  bQ.png  bK.png
+    ├── wP.png  wR.png  wN.png  wB.png  wQ.png  wK.png
+    └── bP.png  bR.png  bN.png  bB.png  bQ.png  bK.png
+```
+
 ---
 
 ## Dependencies
@@ -313,6 +366,8 @@ pip install pygame torch numpy
 | pygame | 2.6+ | UI rendering |
 | torch | 2.0+ | Neural network, GPU acceleration |
 | numpy | 1.24+ | Board encoding, MCTS policy arrays |
+
+The web UI (`FE.html`) has no Python dependencies — it runs entirely in the browser via CDN-hosted chess.js and chessboard.js.
 
 GPU is optional but recommended for training. The bot runs fine on CPU for playing.
 
