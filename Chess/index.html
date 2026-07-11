@@ -209,6 +209,48 @@
     main{ padding:0 1.2rem 3rem; gap:2rem; }
     .side-panel{ width:100%; }
   }
+
+  /* ---------- Promotion picker ---------- */
+  .promo-overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+  }
+  .promo-box{
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:1.4rem;
+    text-align:center;
+  }
+  .promo-title{
+    font-size:.72rem;
+    color:var(--text-muted);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    margin-bottom:1rem;
+  }
+  .promo-options{
+    display:flex;
+    gap:.6rem;
+  }
+  .promo-btn{
+    width:64px; height:64px;
+    padding:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--line);
+    border-radius:6px;
+    background:var(--board-dark);
+    cursor:pointer;
+    transition:border-color .15s ease;
+  }
+  .promo-btn:hover{ border-color:var(--accent); }
+  .promo-btn img{ width:78%; height:78%; }
 </style>
 </head>
 <body>
@@ -252,6 +294,13 @@
 <footer>
   <a href="https://github.com/AnshumanJ28/AlphaZ0" target="_blank" rel="noopener">github.com/AnshumanJ28/AlphaZ0</a>
 </footer>
+
+<div class="promo-overlay" id="promoOverlay">
+  <div class="promo-box">
+    <div class="promo-title">Promote to</div>
+    <div class="promo-options" id="promoOptions"></div>
+  </div>
+</div>
 
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
@@ -318,6 +367,27 @@ function onDrop(source, target){
     // highlights showing so the person can click a destination next.
     return 'snapback';
   }
+
+  const piece = game.get(source);
+  if (isPromotionMove(piece, source, target)){
+    const legal = game.moves({ square: source, verbose: true }).find(m => m.to === target);
+    if (!legal) { clearHighlights(); selectedSquare = null; return 'snapback'; }
+
+    clearHighlights();
+    selectedSquare = null;
+    askPromotion(piece.color, (chosen) => {
+      const move = game.move({ from: source, to: target, promotion: chosen });
+      if (move){
+        board.position(game.fen());
+        updateCheckHighlight();
+        afterHumanMove();
+      }
+    }, () => {
+      board.position(game.fen()); // cancelled — snap the pawn back
+    });
+    return; // don't commit yet — wait for the picker
+  }
+
   const move = game.move({ from: source, to: target, promotion: 'q' });
   if (move === null){
     clearHighlights();
@@ -326,7 +396,40 @@ function onDrop(source, target){
   }
   clearHighlights();
   selectedSquare = null;
+  updateCheckHighlight();
   afterHumanMove();
+}
+
+function isPromotionMove(piece, source, target){
+  if (!piece || piece.type !== 'p') return false;
+  const rank = target[1];
+  return (piece.color === 'w' && rank === '8') || (piece.color === 'b' && rank === '1');
+}
+
+function askPromotion(color, onChoose, onCancel){
+  const container = document.getElementById('promoOptions');
+  const overlay = document.getElementById('promoOverlay');
+  container.innerHTML = '';
+
+  ['q', 'r', 'b', 'n'].forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'promo-btn';
+    const code = color + p.toUpperCase();
+    btn.innerHTML = `<img src="https://raw.githubusercontent.com/oakmac/chessboardjs/master/website/img/chesspieces/wikipedia/${code}.png" alt="${code}">`;
+    btn.addEventListener('click', () => {
+      overlay.style.display = 'none';
+      onChoose(p);
+    });
+    container.appendChild(btn);
+  });
+
+  overlay.style.display = 'flex';
+  overlay.onclick = (e) => {
+    if (e.target === overlay){
+      overlay.style.display = 'none';
+      if (onCancel) onCancel();
+    }
+  };
 }
 
 /* ---------------- Click-to-move (completing a move on an empty/opponent square) ---------------- */
@@ -347,6 +450,25 @@ function handleSquareClick(square){
   if (square === selectedSquare){
     clearHighlights();
     selectedSquare = null;
+    return;
+  }
+
+  const piece = game.get(selectedSquare);
+  if (isPromotionMove(piece, selectedSquare, square)){
+    const legal = game.moves({ square: selectedSquare, verbose: true }).find(m => m.to === square);
+    clearHighlights();
+    const from = selectedSquare;
+    selectedSquare = null;
+    if (!legal) return;
+
+    askPromotion(piece.color, (chosen) => {
+      const move = game.move({ from: from, to: square, promotion: chosen });
+      if (move){
+        board.position(game.fen());
+        updateCheckHighlight();
+        afterHumanMove();
+      }
+    });
     return;
   }
 
