@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlphaZ0 — Neural Chess Engine</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+
+<style>
+  :root{
+    --bg:          #14181A;
+    --line:        #262B2E;
+    --board-light: #E8E2D4;
+    --board-dark:  #3D6459;
+    --accent:      #D9A64E;
+    --accent-soft: rgba(217,166,78,.5);
+    --text:        #ECECEC;
+    --text-muted:  #7C868A;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{
+    margin:0; padding:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+  }
+
+  header{
+    padding:3rem 2rem 2rem;
+    text-align:center;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    font-size:1.6rem;
+    margin:0 0 .5rem;
+    letter-spacing:-.01em;
+  }
+  header p{
+    color:var(--text-muted);
+    font-size:.9rem;
+    max-width:440px;
+    margin:0 auto;
+    line-height:1.6;
+  }
+
+  main{
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    gap:3rem;
+    flex-wrap:wrap;
+    padding:0 2rem 5rem;
+    max-width:1080px;
+    margin:0 auto;
+  }
+
+  /* ---------- Board ---------- */
+  .board-col{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:1.2rem;
+  }
+  #board{
+    width:min(560px, 90vw);
+  }
+
+  .status-row{
+    width:100%;
+    text-align:center;
+    font-size:.85rem;
+    color:var(--text-muted);
+  }
+
+  /* Legal-move highlights */
+  .square-55d63{ position:relative; }
+  .square-55d63.highlight-select{
+    box-shadow: inset 0 0 0 9999px var(--accent-soft);
+  }
+  .square-55d63.move-hint::after{
+    content:'';
+    position:absolute;
+    top:50%; left:50%;
+    width:24%; height:24%;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:var(--accent-soft);
+    pointer-events:none;
+  }
+  .square-55d63.move-hint-capture{
+    box-shadow: inset 0 0 0 4px var(--accent-soft);
+  }
+  .square-55d63.highlight-check{
+    box-shadow: inset 0 0 0 9999px rgba(196,64,64,.55);
+  }
+
+  /* ---------- Side panel ---------- */
+  .side-panel{
+    width:280px;
+    max-width:88vw;
+    padding-top:.4rem;
+  }
+
+  .mode-toggle{
+    display:flex;
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+    margin-bottom:1rem;
+  }
+  .mode-btn{
+    flex:1;
+    padding:.6rem .5rem;
+    font-family:'Inter', sans-serif;
+    font-size:.8rem;
+    background:transparent;
+    color:var(--text-muted);
+    border:none;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .mode-btn + .mode-btn{ border-left:1px solid var(--line); }
+  .mode-btn.active{
+    background:var(--line);
+    color:var(--text);
+  }
+  .mode-btn:hover:not(.active){ color:var(--text); }
+
+  .controls{
+    display:flex;
+    gap:.5rem;
+    width:100%;
+    margin-bottom:1rem;
+  }
+  button, select{
+    font-family:'Inter', sans-serif;
+    font-size:.82rem;
+    padding:.55rem .8rem;
+    border-radius:4px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--text-muted);
+    cursor:pointer;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  button{ flex:1; }
+  select{ width:100%; margin-bottom:1rem; }
+  button:hover{
+    border-color:var(--accent);
+    color:var(--text);
+  }
+  button.primary{
+    color:var(--text);
+    border-color:var(--text-muted);
+  }
+
+  .panel-label{
+    font-size:.72rem;
+    color:var(--text-muted);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    padding-bottom:.6rem;
+    margin-bottom:.6rem;
+    border-bottom:1px solid var(--line);
+  }
+
+  .movelist{
+    max-height:420px;
+    overflow-y:auto;
+    font-family:'JetBrains Mono', monospace;
+    font-size:.85rem;
+  }
+  .movelist::-webkit-scrollbar{ width:4px; }
+  .movelist::-webkit-scrollbar-thumb{ background:var(--line); }
+  .movelist .mv-row{
+    display:grid;
+    grid-template-columns:2rem 1fr 1fr;
+    gap:.5rem;
+    padding:.3rem 0;
+    color:var(--text-muted);
+    border-bottom:1px solid var(--line);
+  }
+  .movelist .mv-row span.white,
+  .movelist .mv-row span.black{ color:var(--text); }
+  .movelist .empty{
+    color:var(--text-muted);
+    font-family:'Inter', sans-serif;
+    font-size:.82rem;
+    padding:.3rem 0;
+  }
+
+  footer{
+    text-align:center;
+    padding:2.5rem 2rem;
+    color:var(--text-muted);
+    font-size:.75rem;
+  }
+  footer a{ color:var(--text-muted); }
+
+  @media (max-width: 780px){
+    main{ padding:0 1.2rem 3rem; gap:2rem; }
+    .side-panel{ width:100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AlphaZ0</h1>
+  <p>A chess engine trained from nothing but the rules of the game, via self-play reinforcement learning.</p>
+</header>
+
+<main>
+
+  <div class="board-col">
+    <div id="board"></div>
+    <div class="status-row" id="turnStatus">White to move</div>
+  </div>
+
+  <div class="side-panel">
+    <div class="mode-toggle">
+      <button class="mode-btn" data-mode="pvp">Pass &amp; Play</button>
+      <button class="mode-btn active" data-mode="bot">vs AlphaZ0 (100)</button>
+    </div>
+
+    <select id="colorSelect">
+      <option value="white">Play as White</option>
+      <option value="black">Play as Black</option>
+    </select>
+
+    <div class="controls">
+      <button id="undoBtn">Undo</button>
+      <button id="resetBtn" class="primary">New Game</button>
+    </div>
+
+    <div class="panel-label">Moves</div>
+    <div class="movelist" id="movelist">
+      <div class="empty">No moves yet — click or drag a piece to begin.</div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <a href="https://github.com/AnshumanJ28/AlphaZ0" target="_blank" rel="noopener">github.com/AnshumanJ28/AlphaZ0</a>
+</footer>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+
+<script>
+/* =====================================================================
+   AlphaZ0 front-end.
+
+   Two modes:
+     - "pvp": Pass & Play, two humans alternate on the same board.
+     - "bot": one human plays against AlphaZ0.
+
+   Moves work by drag-and-drop OR click-to-select (click a piece to see
+   its legal moves highlighted, click a highlighted square to move).
+
+   IMPORTANT: getEngineMove() below is a STUBBED / SIMULATED opponent —
+   it waits briefly, then picks a random legal move. To connect the
+   real bot:
+
+     1. Stand up chesseng.py / mcts.py / NeuralNet.py behind a small
+        FastAPI endpoint, e.g. POST /get_move { fen: "..." } -> { move }
+     2. Replace the body of getEngineMove() with a fetch() call to that
+        endpoint instead of the random-move logic.
+   ===================================================================== */
+
+const game = new Chess();
+let mode = 'bot';          // 'bot' | 'pvp'
+let humanColor = 'w';
+let engineThinking = false;
+let selectedSquare = null;
+
+const board = Chessboard('board', {
+  draggable: true,
+  position: 'start',
+  pieceTheme: 'https://raw.githubusercontent.com/oakmac/chessboardjs/master/website/img/chesspieces/wikipedia/{piece}.png',
+  orientation: 'white',
+  onDragStart: onDragStart,
+  onDrop: onDrop,
+  onSnapEnd: () => { board.position(game.fen()); updateCheckHighlight(); }
+});
+
+/* ---------------- Draggability / turn gating ---------------- */
+
+function canMoveNow(pieceColor){
+  if (game.game_over()) return false;
+  if (mode === 'bot' && engineThinking) return false;
+  if (mode === 'bot' && game.turn() !== humanColor) return false;
+  return pieceColor === game.turn();
+}
+
+function onDragStart(source, piece){
+  const pieceColor = piece.search(/^w/) !== -1 ? 'w' : 'b';
+  if (!canMoveNow(pieceColor)) return false;
+  // Picking up the piece — show its legal moves immediately. This fires
+  // on a plain click too (a click is just a zero-distance pickup), so
+  // this is what makes "click a piece to see legal moves" work.
+  selectSquare(source);
+}
+
+function onDrop(source, target){
+  if (source === target){
+    // A plain click (pickup + release on the same square) — keep the
+    // highlights showing so the person can click a destination next.
+    return 'snapback';
+  }
+  const move = game.move({ from: source, to: target, promotion: 'q' });
+  if (move === null){
+    clearHighlights();
+    selectedSquare = null;
+    return 'snapback';
+  }
+  clearHighlights();
+  selectedSquare = null;
+  afterHumanMove();
+}
+
+/* ---------------- Click-to-move (completing a move on an empty/opponent square) ---------------- */
+
+$('#board').on('click', '.square-55d63', function(){
+  const classes = $(this).attr('class').split(' ');
+  const squareClass = classes.find(c => /^square-[a-h][1-8]$/.test(c));
+  if (!squareClass) return;
+  handleSquareClick(squareClass.replace('square-', ''));
+});
+
+function handleSquareClick(square){
+  if (game.game_over()) return;
+  if (mode === 'bot' && engineThinking) return;
+  if (mode === 'bot' && game.turn() !== humanColor) return;
+  if (!selectedSquare) return;
+
+  if (square === selectedSquare){
+    clearHighlights();
+    selectedSquare = null;
+    return;
+  }
+
+  const move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+  if (move){
+    board.position(game.fen());
+    clearHighlights();
+    selectedSquare = null;
+    updateCheckHighlight();
+    afterHumanMove();
+  }
+}
+
+function selectSquare(square){
+  clearHighlights();
+  selectedSquare = square;
+  $('#board .square-' + square).addClass('highlight-select');
+  const moves = game.moves({ square: square, verbose: true });
+  moves.forEach(m => {
+    const cls = (m.flags.indexOf('c') !== -1 || m.flags.indexOf('e') !== -1) ? 'move-hint-capture' : 'move-hint';
+    $('#board .square-' + m.to).addClass(cls);
+  });
+}
+
+function clearHighlights(){
+  $('#board .square-55d63').removeClass('highlight-select move-hint move-hint-capture');
+}
+
+function getKingSquare(color){
+  const rows = game.board();
+  for (let r = 0; r < 8; r++){
+    for (let f = 0; f < 8; f++){
+      const p = rows[r][f];
+      if (p && p.type === 'k' && p.color === color){
+        return 'abcdefgh'[f] + (8 - r);
+      }
+    }
+  }
+  return null;
+}
+
+function updateCheckHighlight(){
+  $('#board .square-55d63').removeClass('highlight-check');
+  if (game.in_check()){
+    const kingSquare = getKingSquare(game.turn());
+    if (kingSquare) $('#board .square-' + kingSquare).addClass('highlight-check');
+  }
+}
+
+/* ---------------- Turn flow ---------------- */
+
+function afterHumanMove(){
+  refreshMoveList();
+  if (game.game_over()){
+    updateTurnStatus();
+    return;
+  }
+  updateTurnStatus();
+  if (mode === 'bot'){
+    window.setTimeout(engineTurn, 350);
+  }
+}
+
+function updateTurnStatus(){
+  const el = document.getElementById('turnStatus');
+  if (game.game_over()){
+    if (game.in_checkmate()) el.textContent = `Checkmate — ${game.turn()==='w' ? 'Black' : 'White'} wins`;
+    else if (game.in_draw()) el.textContent = 'Draw';
+    else if (game.in_stalemate()) el.textContent = 'Stalemate';
+    else el.textContent = 'Game over';
+    return;
+  }
+  if (mode === 'pvp'){
+    el.textContent = (game.turn() === 'w' ? 'White' : 'Black') + ' to move';
+  } else {
+    el.textContent = (game.turn() === humanColor) ? 'Your move' : 'AlphaZ0 is thinking…';
+  }
+}
+
+function engineTurn(){
+  if (game.game_over()) { updateTurnStatus(); return; }
+  engineThinking = true;
+  updateTurnStatus();
+
+  getEngineMove(game.fen()).then(result => {
+    const move = game.move(result.move, { sloppy: true });
+    if (move){
+      board.position(game.fen());
+      refreshMoveList();
+      updateCheckHighlight();
+    }
+    engineThinking = false;
+    updateTurnStatus();
+  });
+}
+
+/* Simulated engine response — swap this out for a real fetch() to your
+   FastAPI /get_move endpoint when the backend is ready. */
+function getEngineMove(fen){
+  return new Promise(resolve => {
+    const thinkTime = 450 + Math.random() * 650;
+    window.setTimeout(() => {
+      const moves = game.moves();
+      const move = moves[Math.floor(Math.random() * moves.length)];
+      resolve({ move });
+    }, thinkTime);
+  });
+}
+
+/* ---------------- Move list ---------------- */
+
+function refreshMoveList(){
+  const history = game.history();
+  const container = document.getElementById('movelist');
+  if (history.length === 0){
+    container.innerHTML = '<div class="empty">No moves yet — click or drag a piece to begin.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  for (let i = 0; i < history.length; i += 2){
+    const num = i / 2 + 1;
+    const w = history[i] || '';
+    const b = history[i+1] || '';
+    const row = document.createElement('div');
+    row.className = 'mv-row';
+    row.innerHTML = `<span>${num}.</span><span class="white">${w}</span><span class="black">${b}</span>`;
+    container.appendChild(row);
+  }
+  container.scrollTop = container.scrollHeight;
+}
+
+/* ---------------- Controls ---------------- */
+
+function resetGame(){
+  game.reset();
+  board.position('start');
+  clearHighlights();
+  updateCheckHighlight();
+  selectedSquare = null;
+  engineThinking = false;
+  refreshMoveList();
+  updateTurnStatus();
+  if (mode === 'bot' && humanColor === 'b'){
+    window.setTimeout(engineTurn, 350);
+  }
+}
+
+document.getElementById('resetBtn').addEventListener('click', resetGame);
+
+document.getElementById('undoBtn').addEventListener('click', () => {
+  if (engineThinking) return;
+  game.undo();
+  if (mode === 'bot' && game.turn() !== humanColor) game.undo();
+  board.position(game.fen());
+  clearHighlights();
+  updateCheckHighlight();
+  selectedSquare = null;
+  refreshMoveList();
+  updateTurnStatus();
+});
+
+document.getElementById('colorSelect').addEventListener('change', (e) => {
+  humanColor = e.target.value === 'white' ? 'w' : 'b';
+  board.orientation(e.target.value);
+  resetGame();
+});
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    mode = btn.dataset.mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('colorSelect').style.display = (mode === 'bot') ? 'block' : 'none';
+    board.orientation('white');
+    resetGame();
+  });
+});
+
+updateTurnStatus();
+</script>
+
+</body>
+</html>
