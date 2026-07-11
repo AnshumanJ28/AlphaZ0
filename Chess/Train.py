@@ -34,11 +34,11 @@ class TrainConfig:
     channels:          int   = 128
 
     # ── self-play ──────────────────────────────────────────────────────
-    num_workers:       int   = 2          # A3C parallel workers
-    games_per_iter:    int   = 2          # games collected before one train step
-    mcts_sims:         int   = 50         # MCTS simulations per move
-    max_game_moves:    int   = 80         # draw if game exceeds this
-    temperature_moves: int   = 30         # moves before temperature → 0
+    num_workers:       int   = 2
+    games_per_iter:    int   = 2
+    mcts_sims:         int   = 50
+    max_game_moves:    int   = 80
+    temperature_moves: int   = 30
 
     # ── replay buffer ──────────────────────────────────────────────────
     buffer_size:       int   = 10_000
@@ -48,15 +48,15 @@ class TrainConfig:
     batch_size:        int   = 128
     lr:                float = 1e-3
     weight_decay:      float = 1e-4
-    num_epochs:        int   = 3          # gradient steps per iteration
+    num_epochs:        int   = 3
     grad_clip:         float = 1.0
 
     # ── A3C ────────────────────────────────────────────────────────────
-    a3c_entropy_coef:  float = 0.01       # entropy bonus weight (exploration)
-    a3c_value_coef:    float = 0.5        # critic loss weight
-    a3c_gamma:         float = 0.99       # discount factor
-    a3c_gae_lambda:    float = 0.95       # GAE-λ
-    a3c_rollout_len:   int   = 10         # steps per worker rollout
+    a3c_entropy_coef:  float = 0.01
+    a3c_value_coef:    float = 0.5
+    a3c_gamma:         float = 0.99
+    a3c_gae_lambda:    float = 0.95
+    a3c_rollout_len:   int   = 10
 
     # ── loss weights ───────────────────────────────────────────────────
     policy_loss_w:     float = 1.0
@@ -66,14 +66,13 @@ class TrainConfig:
 
     # ── checkpointing ──────────────────────────────────────────────────
     checkpoint_dir:    str   = "checkpoints"
-    save_every:        int   = 10         # save every N iterations
+    save_every:        int   = 10
     log_every:         int   = 1
 
     # ── misc ───────────────────────────────────────────────────────────
     seed:              int   = 42
-    device:            str   = "auto"     # 'auto' | 'cpu' | 'cuda' | 'mps'
-    num_iterations:    int   = 20
-
+    device:            str   = "auto"
+    num_iterations:    int   = 200
 
 # ─────────────────────────── Replay Buffer ────────────────────────────────
 
@@ -708,7 +707,7 @@ def parse_args():
     p.add_argument("--mode",       choices=["train", "eval"], default="train")
     p.add_argument("--resume",     type=str, default=None,  help="Checkpoint path to resume")
     p.add_argument("--eval-model", type=str, default=None,  help="Model path for eval mode")
-    p.add_argument("--iters",      type=int, default=20)
+    p.add_argument("--iters",      type=int, default=200)
     p.add_argument("--workers",    type=int, default=2)
     p.add_argument("--sims",       type=int, default=50,    help="MCTS simulations per move")
     p.add_argument("--games",      type=int, default=2,     help="Self-play games per iter")
