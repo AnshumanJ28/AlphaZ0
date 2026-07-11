@@ -12,14 +12,31 @@
 
 <style>
   :root{
-    --bg:          #14181A;
-    --line:        #262B2E;
-    --board-light: #E8E2D4;
-    --board-dark:  #3D6459;
+    /* ---- Light mode (default) ---- */
+    --bg:          #faf9f7;
+    --surface:     #ffffff;
+    --text:        #1c1c1a;
+    --text-muted:  #8a8580;
+    --board-light: #eee7db;
+    --board-dark:  #a9906f;
+    --border:      #eae7e2;
+    --btn-hover:   #f2efe9;
+    --accent:      #b08b4f;
+    --accent-soft: rgba(176,139,79,.35);
+  }
+
+  html[data-theme="dark"]{
+    /* ---- Dark mode overrides ---- */
+    --bg:          #16181a;
+    --surface:     #212428;
+    --text:        #e4e6eb;
+    --text-muted:  #7C868A;
+    --board-light: #c19c72;
+    --board-dark:  #8c5b3b;
+    --border:      #30363d;
+    --btn-hover:   #30363d;
     --accent:      #D9A64E;
     --accent-soft: rgba(217,166,78,.5);
-    --text:        #ECECEC;
-    --text-muted:  #7C868A;
   }
 
   *{ box-sizing:border-box; }
@@ -30,25 +47,109 @@
     color:var(--text);
     font-family:'Inter', sans-serif;
     min-height:100vh;
+    transition: background .2s ease, color .2s ease;
   }
 
-  header{
-    padding:3rem 2rem 2rem;
-    text-align:center;
+  /* ---------- Top header bar ---------- */
+  .topbar{
+    background:var(--surface);
+    color:var(--text);
+    border-bottom:1px solid var(--border);
+    transition:background .2s ease, border-color .2s ease;
   }
-  h1{
+  .topbar-inner{
+    max-width:1080px;
+    margin:0 auto;
+    padding:.7rem 2rem;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:1rem;
+    flex-wrap:wrap;
+  }
+  .topbar-title{
+    display:flex;
+    align-items:baseline;
+    gap:.6rem;
+    flex-wrap:wrap;
+  }
+  .topbar h1{
     font-family:'Fraunces', serif;
     font-weight:500;
-    font-size:1.6rem;
-    margin:0 0 .5rem;
+    font-size:1.05rem;
+    margin:0;
     letter-spacing:-.01em;
+    color:var(--text);
   }
-  header p{
+  .mascot{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:400;
+    font-size:.85rem;
+    color:var(--accent);
+    letter-spacing:0;
+    margin-left:.15rem;
+  }
+  .topbar-tagline{
+    font-size:.72rem;
     color:var(--text-muted);
-    font-size:.9rem;
-    max-width:440px;
-    margin:0 auto;
-    line-height:1.6;
+  }
+  .topbar-actions{
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+  }
+  .repo-link{
+    display:inline-flex;
+    align-items:center;
+    gap:.4rem;
+    font-family:'Inter', sans-serif;
+    font-size:.74rem;
+    color:var(--text);
+    text-decoration:none;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:.4rem .75rem;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .repo-link:hover{
+    background:var(--btn-hover);
+    border-color:var(--accent);
+  }
+  .repo-link svg{ width:13px; height:13px; fill:currentColor; }
+
+  .intro{
+    color:var(--text-muted);
+    font-size:.8rem;
+    max-width:680px;
+    margin:1.1rem auto 0;
+    padding:0 2rem;
+    text-align:center;
+    line-height:1.5;
+    white-space:nowrap;
+  }
+
+  @media (max-width: 720px){
+    .intro{ white-space:normal; }
+  }
+
+  #themeToggle{
+    background:var(--surface);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:.4rem .75rem;
+    font-family:'Inter', sans-serif;
+    font-size:.74rem;
+    cursor:pointer;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  #themeToggle:hover{
+    background:var(--btn-hover);
+  }
+
+  @media (max-width: 560px){
+    .topbar-inner{ justify-content:center; text-align:center; }
   }
 
   main{
@@ -57,7 +158,7 @@
     align-items:flex-start;
     gap:3rem;
     flex-wrap:wrap;
-    padding:0 2rem 5rem;
+    padding:2.5rem 2rem 5rem;
     max-width:1080px;
     margin:0 auto;
   }
@@ -79,6 +180,16 @@
     font-size:.85rem;
     color:var(--text-muted);
   }
+
+  .status-row.result{
+    text-align:left;
+    font-weight:600;
+    color:var(--text);
+  }
+
+  /* Chessboard.js square colors, driven by our theme variables */
+  #board .white-1e1d7{ background-color: var(--board-light) !important; }
+  #board .black-3c85d{ background-color: var(--board-dark) !important; }
 
   /* Legal-move highlights */
   .square-55d63{ position:relative; }
@@ -111,7 +222,7 @@
 
   .mode-toggle{
     display:flex;
-    border:1px solid var(--line);
+    border:1px solid var(--border);
     border-radius:6px;
     overflow:hidden;
     margin-bottom:1rem;
@@ -121,15 +232,15 @@
     padding:.6rem .5rem;
     font-family:'Inter', sans-serif;
     font-size:.8rem;
-    background:transparent;
+    background:var(--surface);
     color:var(--text-muted);
     border:none;
     cursor:pointer;
     transition:background .15s ease, color .15s ease;
   }
-  .mode-btn + .mode-btn{ border-left:1px solid var(--line); }
+  .mode-btn + .mode-btn{ border-left:1px solid var(--border); }
   .mode-btn.active{
-    background:var(--line);
+    background:var(--btn-hover);
     color:var(--text);
   }
   .mode-btn:hover:not(.active){ color:var(--text); }
@@ -145,17 +256,18 @@
     font-size:.82rem;
     padding:.55rem .8rem;
     border-radius:4px;
-    border:1px solid var(--line);
-    background:transparent;
+    border:1px solid var(--border);
+    background:var(--surface);
     color:var(--text-muted);
     cursor:pointer;
-    transition:border-color .15s ease, color .15s ease;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
   }
   button{ flex:1; }
   select{ width:100%; margin-bottom:1rem; }
   button:hover{
     border-color:var(--accent);
     color:var(--text);
+    background:var(--btn-hover);
   }
   button.primary{
     color:var(--text);
@@ -169,24 +281,23 @@
     letter-spacing:.06em;
     padding-bottom:.6rem;
     margin-bottom:.6rem;
-    border-bottom:1px solid var(--line);
+    border-bottom:1px solid var(--border);
   }
 
   .movelist{
-    max-height:420px;
     overflow-y:auto;
     font-family:'JetBrains Mono', monospace;
     font-size:.85rem;
   }
   .movelist::-webkit-scrollbar{ width:4px; }
-  .movelist::-webkit-scrollbar-thumb{ background:var(--line); }
+  .movelist::-webkit-scrollbar-thumb{ background:var(--border); }
   .movelist .mv-row{
     display:grid;
     grid-template-columns:2rem 1fr 1fr;
     gap:.5rem;
     padding:.3rem 0;
     color:var(--text-muted);
-    border-bottom:1px solid var(--line);
+    border-bottom:1px solid var(--border);
   }
   .movelist .mv-row span.white,
   .movelist .mv-row span.black{ color:var(--text); }
@@ -197,17 +308,103 @@
     padding:.3rem 0;
   }
 
-  footer{
-    text-align:center;
-    padding:2.5rem 2rem;
-    color:var(--text-muted);
-    font-size:.75rem;
+  .captured-group{
+    display:flex;
+    align-items:center;
+    gap:.6rem;
+    margin-bottom:.5rem;
   }
-  footer a{ color:var(--text-muted); }
+  .captured-label{
+    font-size:.72rem;
+    color:var(--text-muted);
+    width:38px;
+    flex-shrink:0;
+  }
+  .captured-row{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:.1rem;
+    min-height:20px;
+  }
+  .captured-row img{
+    width:20px;
+    height:20px;
+  }
+  .captured-empty{
+    font-size:.78rem;
+    color:var(--text-muted);
+  }
+  .material-advantage{
+    font-size:.72rem;
+    color:var(--accent);
+    font-family:'JetBrains Mono', monospace;
+  }
+
+  .side-links{
+    display:flex;
+    flex-direction:row;
+    gap:.5rem;
+  }
+  .side-link{
+    display:flex;
+    align-items:center;
+    gap:.55rem;
+    padding:.55rem .8rem;
+    border:1px solid var(--border);
+    border-radius:4px;
+    background:var(--surface);
+    color:var(--text-muted);
+    text-decoration:none;
+    font-family:'Inter', sans-serif;
+    font-size:.8rem;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .side-link:hover{
+    border-color:var(--accent);
+    color:var(--text);
+    background:var(--btn-hover);
+  }
+  .side-link svg{ width:14px; height:14px; fill:currentColor; flex-shrink:0; }
+
+  footer{
+    padding:2.5rem 2rem;
+    border-top:1px solid var(--border);
+  }
+  .footer-inner{
+    max-width:1080px;
+    margin:0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:1.5rem;
+    flex-wrap:wrap;
+  }
+  .footer-heading{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    font-size:.95rem;
+    color:var(--text);
+    margin:0 0 .3rem;
+  }
+  .footer-copyright{
+    font-size:.75rem;
+    color:var(--text-muted);
+    margin:0;
+  }
+
+  @media (max-width: 560px){
+    .footer-inner{ justify-content:center; text-align:center; }
+  }
 
   @media (max-width: 780px){
-    main{ padding:0 1.2rem 3rem; gap:2rem; }
+    main{ padding:2rem 1.2rem 3rem; gap:2rem; }
     .side-panel{ width:100%; }
+    #themeToggle{
+      position:static;
+      display:inline-block;
+      margin-top:1rem;
+    }
   }
 
   /* ---------- Promotion picker ---------- */
@@ -220,8 +417,8 @@
     z-index:1000;
   }
   .promo-box{
-    background:var(--bg);
-    border:1px solid var(--line);
+    background:var(--surface);
+    border:1px solid var(--border);
     border-radius:8px;
     padding:1.4rem;
     text-align:center;
@@ -243,7 +440,7 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    border:1px solid var(--line);
+    border:1px solid var(--border);
     border-radius:6px;
     background:var(--board-dark);
     cursor:pointer;
@@ -255,9 +452,21 @@
 </head>
 <body>
 
-<header>
-  <h1>AlphaZ0</h1>
-  <p>A chess engine trained from nothing but the rules of the game, via self-play reinforcement learning.</p>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-title">
+      <h1>AlphaZ0 <span class="mascot">( ﾟヮﾟ)</span></h1>
+      <span class="topbar-tagline">Neural Chess Engine</span>
+    </div>
+    <div class="topbar-actions">
+      <a class="repo-link" href="https://github.com/AnshumanJ28/AlphaZ0" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <button id="themeToggle">Switch to Dark Mode</button>
+    </div>
+  </div>
+  <p class="intro">A chess engine trained from nothing but the rules of the game, via self-play reinforcement learning.</p>
 </header>
 
 <main>
@@ -283,7 +492,20 @@
       <button id="resetBtn" class="primary">New Game</button>
     </div>
 
-    <div class="panel-label">Moves</div>
+    <div class="panel-label" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>Captured</span>
+      <span id="materialAdvantage" class="material-advantage"></span>
+    </div>
+    <div class="captured-group">
+      <span class="captured-label">White</span>
+      <div class="captured-row" id="capturedByWhite"><span class="captured-empty">—</span></div>
+    </div>
+    <div class="captured-group">
+      <span class="captured-label">Black</span>
+      <div class="captured-row" id="capturedByBlack"><span class="captured-empty">—</span></div>
+    </div>
+
+    <div class="panel-label" style="margin-top:1.2rem;">Moves</div>
     <div class="movelist" id="movelist">
       <div class="empty">No moves yet — click or drag a piece to begin.</div>
     </div>
@@ -292,7 +514,24 @@
 </main>
 
 <footer>
-  <a href="https://github.com/AnshumanJ28/AlphaZ0" target="_blank" rel="noopener">github.com/AnshumanJ28/AlphaZ0</a>
+  <div class="footer-inner">
+    <div class="footer-left">
+      <p class="footer-heading">MIT License</p>
+      <p class="footer-copyright">Copyright (c) 2026 Anshuman Pandey</p>
+    </div>
+    <div class="footer-right">
+      <div class="side-links">
+        <a class="side-link" href="https://github.com/AnshumanJ28" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+        <a class="side-link" href="https://www.linkedin.com/in/anshuman-pandey-a77940279" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M14.82 0H1.18C.53 0 0 .52 0 1.16v13.68C0 15.48.53 16 1.18 16h13.64c.65 0 1.18-.52 1.18-1.16V1.16C16 .52 15.47 0 14.82 0zM4.75 13.65H2.4V6h2.35v7.65zM3.58 4.97c-.76 0-1.37-.61-1.37-1.37 0-.75.61-1.36 1.37-1.36.75 0 1.36.61 1.36 1.36 0 .76-.61 1.37-1.36 1.37zm10.07 8.68h-2.35V9.9c0-.87-.02-1.99-1.22-1.99-1.22 0-1.4.95-1.4 1.93v3.81H6.33V6h2.25v1.04h.03c.32-.6 1.08-1.22 2.23-1.22 2.38 0 2.81 1.57 2.81 3.6v4.23z"/></svg>
+          LinkedIn
+        </a>
+      </div>
+    </div>
+  </div>
 </footer>
 
 <div class="promo-overlay" id="promoOverlay">
@@ -341,6 +580,22 @@ const board = Chessboard('board', {
   onDragStart: onDragStart,
   onDrop: onDrop,
   onSnapEnd: () => { board.position(game.fen()); updateCheckHighlight(); }
+});
+
+/* ---------------- Theme toggle ---------------- */
+
+const rootEl = document.documentElement;
+const themeToggleBtn = document.getElementById('themeToggle');
+
+themeToggleBtn.addEventListener('click', () => {
+  const isDark = rootEl.getAttribute('data-theme') === 'dark';
+  if (isDark){
+    rootEl.removeAttribute('data-theme');
+    themeToggleBtn.textContent = 'Switch to Dark Mode';
+  } else {
+    rootEl.setAttribute('data-theme', 'dark');
+    themeToggleBtn.textContent = 'Switch to Light Mode';
+  }
 });
 
 /* ---------------- Draggability / turn gating ---------------- */
@@ -522,6 +777,7 @@ function updateCheckHighlight(){
 
 function afterHumanMove(){
   refreshMoveList();
+  updateCapturedPieces();
   if (game.game_over()){
     updateTurnStatus();
     return;
@@ -535,12 +791,14 @@ function afterHumanMove(){
 function updateTurnStatus(){
   const el = document.getElementById('turnStatus');
   if (game.game_over()){
+    el.classList.add('result');
     if (game.in_checkmate()) el.textContent = `Checkmate — ${game.turn()==='w' ? 'Black' : 'White'} wins`;
     else if (game.in_draw()) el.textContent = 'Draw';
     else if (game.in_stalemate()) el.textContent = 'Stalemate';
     else el.textContent = 'Game over';
     return;
   }
+  el.classList.remove('result');
   if (mode === 'pvp'){
     el.textContent = (game.turn() === 'w' ? 'White' : 'Black') + ' to move';
   } else {
@@ -558,6 +816,7 @@ function engineTurn(){
     if (move){
       board.position(game.fen());
       refreshMoveList();
+  updateCapturedPieces();
       updateCheckHighlight();
     }
     engineThinking = false;
@@ -580,11 +839,60 @@ function getEngineMove(fen){
 
 /* ---------------- Move list ---------------- */
 
+const VISIBLE_MOVE_ROWS = 13; // rows shown before the move list scrolls
+
+const PIECE_VALUES = { q: 9, r: 5, b: 3, n: 3, p: 1 };
+const PIECE_ORDER  = ['q', 'r', 'b', 'n', 'p'];
+
+function updateCapturedPieces(){
+  const history = game.history({ verbose: true });
+  const capturedByWhite = []; // black pieces White has captured
+  const capturedByBlack = []; // white pieces Black has captured
+
+  history.forEach(m => {
+    if (m.captured){
+      if (m.color === 'w') capturedByWhite.push(m.captured);
+      else capturedByBlack.push(m.captured);
+    }
+  });
+
+  renderCapturedRow('capturedByWhite', capturedByWhite, 'b');
+  renderCapturedRow('capturedByBlack', capturedByBlack, 'w');
+
+  const whiteValue = capturedByWhite.reduce((sum, p) => sum + PIECE_VALUES[p], 0);
+  const blackValue = capturedByBlack.reduce((sum, p) => sum + PIECE_VALUES[p], 0);
+  const diff = whiteValue - blackValue;
+
+  const advEl = document.getElementById('materialAdvantage');
+  if (diff === 0) advEl.textContent = '';
+  else advEl.textContent = diff > 0 ? `White +${diff}` : `Black +${-diff}`;
+}
+
+function renderCapturedRow(containerId, pieces, pieceColor){
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  if (pieces.length === 0){
+    container.innerHTML = '<span class="captured-empty">—</span>';
+    return;
+  }
+
+  const sorted = pieces.slice().sort((a, b) => PIECE_ORDER.indexOf(a) - PIECE_ORDER.indexOf(b));
+  sorted.forEach(p => {
+    const code = pieceColor + p.toUpperCase();
+    const img = document.createElement('img');
+    img.src = `https://raw.githubusercontent.com/oakmac/chessboardjs/master/website/img/chesspieces/wikipedia/${code}.png`;
+    img.alt = code;
+    container.appendChild(img);
+  });
+}
+
 function refreshMoveList(){
   const history = game.history();
   const container = document.getElementById('movelist');
   if (history.length === 0){
     container.innerHTML = '<div class="empty">No moves yet — click or drag a piece to begin.</div>';
+    container.style.maxHeight = '';
     return;
   }
   container.innerHTML = '';
@@ -596,6 +904,11 @@ function refreshMoveList(){
     row.className = 'mv-row';
     row.innerHTML = `<span>${num}.</span><span class="white">${w}</span><span class="black">${b}</span>`;
     container.appendChild(row);
+  }
+  const firstRow = container.querySelector('.mv-row');
+  if (firstRow){
+    const rowHeight = firstRow.getBoundingClientRect().height;
+    container.style.maxHeight = (rowHeight * VISIBLE_MOVE_ROWS) + 'px';
   }
   container.scrollTop = container.scrollHeight;
 }
@@ -610,6 +923,7 @@ function resetGame(){
   selectedSquare = null;
   engineThinking = false;
   refreshMoveList();
+  updateCapturedPieces();
   updateTurnStatus();
   if (mode === 'bot' && humanColor === 'b'){
     window.setTimeout(engineTurn, 350);
@@ -627,6 +941,7 @@ document.getElementById('undoBtn').addEventListener('click', () => {
   updateCheckHighlight();
   selectedSquare = null;
   refreshMoveList();
+  updateCapturedPieces();
   updateTurnStatus();
 });
 
