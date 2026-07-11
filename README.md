@@ -367,7 +367,7 @@ pip install pygame torch numpy
 | torch | 2.0+ | Neural network, GPU acceleration |
 | numpy | 1.24+ | Board encoding, MCTS policy arrays |
 
-The web UI (`FE.html`) has no Python dependencies — it runs entirely in the browser via CDN-hosted chess.js and chessboard.js.
+The web UI (`index.html`) has no Python dependencies — it runs entirely in the browser via CDN-hosted chess.js and chessboard.js.
 
 GPU is optional but recommended for training. The bot runs fine on CPU for playing.
 
