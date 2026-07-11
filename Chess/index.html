@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AlphaZ0 — Neural Chess Engine</title>
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/oakmac/chessboardjs/master/website/img/chesspieces/wikipedia/wN.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -58,7 +59,7 @@
     transition:background .2s ease, border-color .2s ease;
   }
   .topbar-inner{
-    max-width:1080px;
+    max-width:1320px;
     margin:0 auto;
     padding:.7rem 2rem;
     display:flex;
@@ -159,7 +160,7 @@
     gap:3rem;
     flex-wrap:wrap;
     padding:2.5rem 2rem 5rem;
-    max-width:1080px;
+    max-width:1320px;
     margin:0 auto;
   }
 
@@ -186,6 +187,22 @@
     font-weight:600;
     color:var(--text);
   }
+
+  .critical-moment{
+    display:none;
+    width:100%;
+    text-align:left;
+    font-size:.78rem;
+    color:var(--text-muted);
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:3px solid var(--accent);
+    border-radius:4px;
+    padding:.6rem .8rem;
+    line-height:1.4;
+  }
+  .critical-moment.visible{ display:block; }
+  .critical-moment b{ color:var(--text); }
 
   /* Chessboard.js square colors, driven by our theme variables */
   #board .white-1e1d7{ background-color: var(--board-light) !important; }
@@ -308,6 +325,46 @@
     padding:.3rem 0;
   }
 
+  .monologue-col{
+    display:flex;
+    flex-direction:column;
+    width:280px;
+    max-width:88vw;
+    padding-top:.4rem;
+  }
+  .monologue{
+    flex:1;
+    min-height:320px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    gap:.35rem;
+  }
+  .monologue::-webkit-scrollbar{ width:4px; }
+  .monologue::-webkit-scrollbar-thumb{ background:var(--border); }
+  .monologue-empty{
+    color:var(--text-muted);
+    font-size:.8rem;
+    font-style:italic;
+  }
+  .monologue-line{
+    font-size:.8rem;
+    color:var(--text-muted);
+    line-height:1.4;
+    opacity:0;
+    animation:monologueFadeIn .4s ease forwards;
+  }
+  .monologue-line::before{
+    content:'( ﾟヮﾟ) ';
+    color:var(--accent);
+    font-family:'JetBrains Mono', monospace;
+  }
+  @keyframes monologueFadeIn{
+    from{ opacity:0; transform:translateY(4px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
   .captured-group{
     display:flex;
     align-items:center;
@@ -372,7 +429,7 @@
     border-top:1px solid var(--border);
   }
   .footer-inner{
-    max-width:1080px;
+    max-width:1320px;
     margin:0 auto;
     display:flex;
     align-items:center;
@@ -397,9 +454,16 @@
     .footer-inner{ justify-content:center; text-align:center; }
   }
 
+  @media (max-width: 1300px) and (min-width: 781px){
+    .monologue-col{ width:100%; order:3; }
+    .monologue{ min-height:140px; }
+  }
+
   @media (max-width: 780px){
     main{ padding:2rem 1.2rem 3rem; gap:2rem; }
     .side-panel{ width:100%; }
+    .monologue-col{ width:100%; order:3; }
+    .monologue{ min-height:140px; }
     #themeToggle{
       position:static;
       display:inline-block;
@@ -471,9 +535,17 @@
 
 <main>
 
+  <div class="monologue-col" id="monologuePanel">
+    <div class="panel-label">Engine's Inner Monologue</div>
+    <div class="monologue" id="monologue">
+      <div class="monologue-empty">AlphaZ0 is quiet for now.</div>
+    </div>
+  </div>
+
   <div class="board-col">
     <div id="board"></div>
     <div class="status-row" id="turnStatus">White to move</div>
+    <div class="critical-moment" id="criticalMoment"></div>
   </div>
 
   <div class="side-panel">
@@ -780,6 +852,7 @@ function afterHumanMove(){
   updateCapturedPieces();
   if (game.game_over()){
     updateTurnStatus();
+    showCriticalMoment();
     return;
   }
   updateTurnStatus();
@@ -810,6 +883,7 @@ function engineTurn(){
   if (game.game_over()) { updateTurnStatus(); return; }
   engineThinking = true;
   updateTurnStatus();
+  startMonologue();
 
   getEngineMove(game.fen()).then(result => {
     const move = game.move(result.move, { sloppy: true });
@@ -820,7 +894,9 @@ function engineTurn(){
       updateCheckHighlight();
     }
     engineThinking = false;
+    stopMonologue();
     updateTurnStatus();
+    if (game.game_over()) showCriticalMoment();
   });
 }
 
@@ -835,6 +911,133 @@ function getEngineMove(fen){
       resolve({ move });
     }, thinkTime);
   });
+}
+
+/* ---------------- Engine's Inner Monologue ----------------
+   Cosmetic, phase-aware "thoughts" that stream in while AlphaZ0 is
+   thinking. Phrases are picked from a pool matching the rough game
+   phase (opening / middlegame / endgame) inferred from move count and
+   material left on the board. Purely flavor text — swap the pools out
+   or wire real engine commentary here once the backend exists. */
+
+const MONOLOGUE_PHRASES = {
+  opening: [
+    'weighing central control',
+    'comparing this against known opening lines',
+    'checking pawn structure options',
+    'considering piece development order',
+    'evaluating king safety this early',
+    'looking at tempo trades'
+  ],
+  middlegame: [
+    'scanning for tactical shots',
+    'weighing king safety against material',
+    'calculating a few exchange sequences',
+    'looking for weaknesses in the pawn chain',
+    'considering a positional sacrifice',
+    'checking if this piece is overloaded',
+    'evaluating outpost squares'
+  ],
+  endgame: [
+    'counting tempo carefully',
+    'checking king opposition',
+    'evaluating the pawn race',
+    'looking for a zugzwang idea',
+    'weighing activity over material here',
+    'calculating the shortest path to promotion'
+  ]
+};
+
+let monologueTimer = null;
+
+function currentGamePhase(){
+  const moveCount = game.history().length;
+  const pieceCount = game.board().flat().filter(sq => sq && sq.type !== 'k' && sq.type !== 'p').length;
+  if (moveCount < 10) return 'opening';
+  if (pieceCount <= 4) return 'endgame';
+  return 'middlegame';
+}
+
+function pushMonologueLine(){
+  const pool = MONOLOGUE_PHRASES[currentGamePhase()];
+  const text = pool[Math.floor(Math.random() * pool.length)];
+  const container = document.getElementById('monologue');
+  const empty = container.querySelector('.monologue-empty');
+  if (empty) empty.remove();
+
+  const line = document.createElement('div');
+  line.className = 'monologue-line';
+  line.textContent = text;
+  container.appendChild(line);
+
+  while (container.children.length > 6){
+    container.removeChild(container.firstChild);
+  }
+  container.scrollTop = container.scrollHeight;
+}
+
+function startMonologue(){
+  if (mode !== 'bot') return;
+  pushMonologueLine();
+  monologueTimer = window.setInterval(pushMonologueLine, 420);
+}
+
+function stopMonologue(){
+  if (monologueTimer){
+    window.clearInterval(monologueTimer);
+    monologueTimer = null;
+  }
+}
+
+function resetMonologue(){
+  stopMonologue();
+  const container = document.getElementById('monologue');
+  container.innerHTML = '<div class="monologue-empty">AlphaZ0 is quiet for now.</div>';
+}
+
+/* ---------------- Critical Moment flagger ----------------
+   After the game ends, flags the single move with the biggest swing
+   in material balance as the "turning point". A simple stand-in for
+   real engine eval — once the backend exists, swap the heuristic below
+   for actual win-probability deltas per move. */
+
+function showCriticalMoment(){
+  const el = document.getElementById('criticalMoment');
+  const hist = game.history({ verbose: true });
+
+  let balance = 0;
+  let maxSwing = 0;
+  let criticalIndex = -1;
+
+  hist.forEach((m, i) => {
+    const before = balance;
+    if (m.captured){
+      const val = PIECE_VALUES[m.captured] || 0;
+      balance += (m.color === 'w') ? val : -val;
+    }
+    const swing = Math.abs(balance - before);
+    if (swing >= maxSwing && swing > 0){
+      maxSwing = swing;
+      criticalIndex = i;
+    }
+  });
+
+  // Fall back to the final (mating/last) move if no captures happened.
+  if (criticalIndex === -1 && hist.length > 0) criticalIndex = hist.length - 1;
+  if (criticalIndex === -1){
+    el.classList.remove('visible');
+    return;
+  }
+
+  const m = hist[criticalIndex];
+  const moveNumber = Math.floor(criticalIndex / 2) + 1;
+  const notation = (m.color === 'w') ? `${moveNumber}.` : `${moveNumber}...`;
+  el.innerHTML = `<b>${notation} ${m.san}</b> — this was the turning point`;
+  el.classList.add('visible');
+}
+
+function hideCriticalMoment(){
+  document.getElementById('criticalMoment').classList.remove('visible');
 }
 
 /* ---------------- Move list ---------------- */
@@ -925,6 +1128,8 @@ function resetGame(){
   refreshMoveList();
   updateCapturedPieces();
   updateTurnStatus();
+  hideCriticalMoment();
+  resetMonologue();
   if (mode === 'bot' && humanColor === 'b'){
     window.setTimeout(engineTurn, 350);
   }
@@ -957,6 +1162,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('colorSelect').style.display = (mode === 'bot') ? 'block' : 'none';
+    document.getElementById('monologuePanel').style.display = (mode === 'bot') ? 'flex' : 'none';
     board.orientation('white');
     resetGame();
   });
