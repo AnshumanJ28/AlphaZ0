@@ -1,5 +1,4 @@
 torch
 numpy
-pygame
 fastapi
 uvicorn[standard]
