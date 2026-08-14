@@ -604,6 +604,6 @@ Star this repo if you found it interesting!
 
 ---
 
-*Made by [Your Name](https://github.com/AnshumanJ28)*
+*Made by [Anshuman Pandey](https://github.com/AnshumanJ28)*
 
 </div>
