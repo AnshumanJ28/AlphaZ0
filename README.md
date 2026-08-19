@@ -44,7 +44,7 @@
 <td>
 
 **AlphaZ0 is actively being trained and developed.**
-The deployed checkpoint (~100 Elo) represents an early snapshot — model weights update as training runs accumulate. The C++ accelerated v2 backend is currently being integrated and battle-tested.
+The deployed checkpoint (~250 Elo) represents an early snapshot — model weights update as training runs accumulate. The C++ accelerated v2 backend is currently being integrated and battle-tested.
 
 </td>
 </tr>
@@ -115,7 +115,7 @@ AlphaZ0 has gone through two distinct architectural generations. Both versions s
 | Web server | Static file serving (`FE.html`) |
 | Web backend | None — frontend-only |
 
-**Characteristic:** Easy to read and modify. MCTS runs at ~50–200 sims/move on CPU. Self-play games are relatively slow due to Python overhead in the inner search loop.
+**Characteristic:** Easy to read and modify. MCTS runs at ~50–200 sims/move on CPU. Self-play games are relatively slow due to Python overhead in the inner search loop. *Note: v1 was trained on 20 self-play games as a proof of concept.*
 
 > **Download / browse v1:** [`github.com/AnshumanJ28/AlphaZ0/tree/v1.0`](https://github.com/AnshumanJ28/AlphaZ0/tree/v1.0)
 
@@ -135,7 +135,7 @@ AlphaZ0 has gone through two distinct architectural generations. Both versions s
 | Web backend | `app.py` — FastAPI, serves `index.html`, exposes `/get_move` |
 | Web frontend | `index.html` — richer UI, talks to FastAPI via REST |
 
-**Characteristic:** The hot loop (move generation, MCTS node expansion, game simulation) runs in native C++ at full CPU speed. Python is only called back for neural network inference. Target: 5–10× speedup over v1 for self-play throughput.
+**Characteristic:** The hot loop (move generation, MCTS node expansion, game simulation) runs in native C++ at full CPU speed. Python is only called back for neural network inference. Target: 5–10× speedup over v1 for self-play throughput. *Note: v2 has currently been trained on 1,100 self-play games.*
 
 > [!IMPORTANT]
 > v2 falls back to the pure-Python stack automatically if the compiled extension (`alphaz0_cpp.pyd`) is not found. You can always run `app.py` without building the C++ module — it will just be slower.
@@ -186,7 +186,7 @@ AlphaZ0 has gone through two distinct architectural generations. Both versions s
 
 **Interface features:** Click or drag to move · Legal move highlighting · King's square flags red when in check · Promotion picker (Q R B N)
 
-> The v2 demo runs at approximately **~100 Elo** (chess.com scale) — an early checkpoint. Strength increases as training progresses.
+> The v2 demo runs at approximately **~250 Elo** (chess.com scale) — an early checkpoint. Strength increases as training progresses.
 
 ---
 
@@ -198,10 +198,23 @@ AlphaZ0 has gone through two distinct architectural generations. Both versions s
 ### End-to-End Data Flow
 
 ```mermaid
-flowchart LR
-    WEB["Web UI"] -->|HTTP/REST| API["FastAPI Server"]
-    API -->|pybind11| CPP["C++ Core<br/>(MCTS & Rules)"]
-    CPP <-->|"NN Eval<br/>(Callback)"| NN["PyTorch<br/>ResNet"]
+flowchart TB
+    subgraph ENGINE["AlphaZ0 Engine (C++ / Python)"]
+        direction TB
+        INPUT["Current Board State<br/>(FEN)"] --> MCTS["Monte Carlo Tree Search<br/>(PUCT Selection)"]
+        
+        subgraph SEARCH["MCTS Inner Loop"]
+            direction TB
+            SEL["Select Leaf Node"] --> EXP["Expand & Evaluate"]
+            EXP -.->|"Float[1152] Board Tensor"| NN["PyTorch ResNet Model"]
+            NN -.->|"Policy (Prior Probabilities)<br/>Value (Win/Loss/Draw)"| EXP
+            EXP --> BCK["Backpropagate Values<br/>Up the Tree"]
+            BCK -.->|"Loop N Simulations"| SEL
+        end
+        
+        MCTS --> SEARCH
+        SEARCH --> BEST["Select Best Move<br/>(Highest Visit Count)"]
+    end
 ```
 
 ### The Self-Improvement Loop
