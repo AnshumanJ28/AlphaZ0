@@ -10,6 +10,7 @@ import threading
 from collections import deque
 from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import torch
@@ -21,8 +22,16 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import chesseng as ce
 import BoardEncoder
-from NeuralNet import ChessNet, POLICY_SIZE, move_to_index
-from mcts import MCTS
+from NeuralNet import ChessNet, POLICY_SIZE, move_to_index, make_eval_fn
+from mcts import MCTS, create_mcts
+
+# ── Try to load C++ core ─────────────────────────────────────────────────────
+_USE_CPP = False
+try:
+    import alphaz0_cpp as _cpp
+    _USE_CPP = True
+except ImportError:
+    pass
 
 # ─────────────────────────────── Config ───────────────────────────────────
 
@@ -30,19 +39,19 @@ from mcts import MCTS
 class TrainConfig:
     # ── model ──────────────────────────────────────────────────────────
     in_channels:       int   = 18
-    num_blocks:        int   = 10
-    channels:          int   = 128
+    num_blocks:        int   = 6    # reduced from 10 — 4x fewer params, much faster
+    channels:          int   = 64   # reduced from 128
 
     # ── self-play ──────────────────────────────────────────────────────
-    num_workers:       int   = 2
-    games_per_iter:    int   = 2
+    num_workers:       int   = 0
+    games_per_iter:    int   = 10
     mcts_sims:         int   = 50
-    max_game_moves:    int   = 80
+    max_game_moves:    int   = 150   # increased to let games reach checkmate
     temperature_moves: int   = 30
 
     # ── replay buffer ──────────────────────────────────────────────────
     buffer_size:       int   = 10_000
-    min_buffer_before_train: int = 200
+    min_buffer_before_train: int = 500
 
     # ── training ───────────────────────────────────────────────────────
     batch_size:        int   = 128
@@ -52,7 +61,7 @@ class TrainConfig:
     grad_clip:         float = 1.0
 
     # ── A3C ────────────────────────────────────────────────────────────
-    a3c_entropy_coef:  float = 0.01
+    a3c_entropy_coef:  float = 0.15   # increased to prevent entropy collapse
     a3c_value_coef:    float = 0.5
     a3c_gamma:         float = 0.99
     a3c_gae_lambda:    float = 0.95
@@ -72,7 +81,7 @@ class TrainConfig:
     # ── misc ───────────────────────────────────────────────────────────
     seed:              int   = 42
     device:            str   = "auto"
-    num_iterations:    int   = 200
+    num_iterations:    int   = 1000
 
 # ─────────────────────────── Replay Buffer ────────────────────────────────
 
@@ -111,9 +120,33 @@ def play_one_game(
 ) -> List[Experience]:
     """
     Play a complete game via MCTS and collect (state, π, z) tuples.
+    Uses C++ self-play when available (much faster), falls back to pure Python.
     Returns a list of Experience objects with outcomes filled in.
     """
-    model.eval()   # disable BN updates during inference — faster + safer
+    model.eval()
+
+    # ── C++ fast path ────────────────────────────────────────────────────
+    if _USE_CPP:
+        eval_fn = make_eval_fn(model, device)
+        sp_cfg = _cpp.SelfPlayConfig()
+        sp_cfg.mcts_sims = cfg.mcts_sims
+        sp_cfg.max_game_moves = cfg.max_game_moves
+        sp_cfg.temperature_moves = cfg.temperature_moves
+
+        cpp_experiences = _cpp.play_one_game(eval_fn, sp_cfg)
+
+        # Convert C++ Experience to Python Experience
+        experiences = []
+        for cpp_exp in cpp_experiences:
+            exp = Experience(
+                board_tensor=np.array(cpp_exp.board_tensor, dtype=np.float32),
+                policy_target=np.array(cpp_exp.policy_target, dtype=np.float32),
+                value_target=cpp_exp.value_target,
+            )
+            experiences.append(exp)
+        return experiences
+
+    # ── Pure Python fallback ─────────────────────────────────────────────
     mcts = MCTS(model, device, num_simulations=cfg.mcts_sims)
     gs   = ce.GameState()
 
@@ -219,9 +252,14 @@ class A3CWorker(threading.Thread):
             rollout_states, rollout_log_probs, rollout_values, rollout_rewards = \
                 [], [], [], []
 
-            gs = ce.GameState()
-            mcts = MCTS(self.local_model, self.cpu_device,
-                        num_simulations=max(10, cfg.mcts_sims // 4))  # lighter for A3C rollout
+            # Use C++ GameState if available
+            if _USE_CPP:
+                gs = _cpp.GameState()
+            else:
+                gs = ce.GameState()
+
+            mcts_obj = create_mcts(self.local_model, self.cpu_device,
+                                   num_simulations=max(10, cfg.mcts_sims // 4))
 
             game_exps: List[Experience] = []
             move_count = 0
@@ -231,8 +269,13 @@ class A3CWorker(threading.Thread):
                 if done:
                     break
 
+                if _USE_CPP and isinstance(gs, _cpp.GameState):
+                    board_enc = np.array(_cpp.encode_board(gs), dtype=np.float32)
+                else:
+                    board_enc = BoardEncoder.encode(gs)
+
                 board_t = torch.tensor(
-                    BoardEncoder.encode(gs), dtype=torch.float32
+                    board_enc, dtype=torch.float32
                 ).unsqueeze(0).to(self.cpu_device)
 
                 log_policy, value = self.local_model(board_t)
@@ -240,7 +283,7 @@ class A3CWorker(threading.Thread):
 
                 # Get move via lightweight MCTS
                 temperature = 1.0 if move_count < cfg.temperature_moves else 1e-3
-                move_probs, best_move = mcts.get_move_probs(gs, temperature=temperature)
+                move_probs, best_move = mcts_obj.get_move_probs(gs, temperature=temperature)
 
                 if best_move is None:
                     done = True
@@ -248,16 +291,22 @@ class A3CWorker(threading.Thread):
                     break
 
                 # Log-prob of chosen move under current policy
-                idx = move_to_index(best_move)
+                if hasattr(best_move, 'to_index'):
+                    idx = best_move.to_index()
+                else:
+                    idx = move_to_index(best_move)
                 log_prob = log_policy[0, idx]
 
                 # Build full pi vector for replay
                 pi = np.zeros(POLICY_SIZE, dtype=np.float32)
                 for m, p in move_probs.items():
-                    pi[move_to_index(m)] = p
+                    if hasattr(m, 'to_index'):
+                        pi[m.to_index()] = p
+                    else:
+                        pi[move_to_index(m)] = p
 
                 game_exps.append(Experience(
-                    BoardEncoder.encode(gs).copy(), pi, 0.0  # z filled after
+                    board_enc.copy(), pi, 0.0  # z filled after
                 ))
 
                 rollout_states.append(board_t)
@@ -287,8 +336,12 @@ class A3CWorker(threading.Thread):
                 R = rollout_rewards[-1]
             else:
                 with torch.no_grad():
+                    if _USE_CPP and isinstance(gs, _cpp.GameState):
+                        board_enc = np.array(_cpp.encode_board(gs), dtype=np.float32)
+                    else:
+                        board_enc = BoardEncoder.encode(gs)
                     board_t = torch.tensor(
-                        BoardEncoder.encode(gs), dtype=torch.float32
+                        board_enc, dtype=torch.float32
                     ).unsqueeze(0).to(self.cpu_device)
                     _, boot_v = self.local_model(board_t)
                     R = boot_v.item()
@@ -464,6 +517,13 @@ def save_checkpoint(model: ChessNet, optimizer, scheduler, iteration: int, cfg: 
 
 def load_checkpoint(path: str, model: ChessNet, optimizer=None, scheduler=None):
     ckpt = torch.load(path, map_location=lambda storage, loc: storage)
+    
+    # Handle the case where the user is loading a raw state_dict (like chess_net_best.pt)
+    if "model_state" not in ckpt:
+        model.load_state_dict(ckpt)
+        return 0  # No iteration data available in a raw state_dict
+        
+    # Handle full checkpoints (like chess_net_iter_0010.pt)
     model.load_state_dict(ckpt["model_state"])
     if optimizer and "optimizer_state" in ckpt:
         optimizer.load_state_dict(ckpt["optimizer_state"])
@@ -504,6 +564,11 @@ def train(cfg: TrainConfig, resume_path: Optional[str] = None):
     )
     log = logging.getLogger(__name__)
 
+    if _USE_CPP:
+        log.info("C++ core loaded — using fast MCTS + self-play")
+    else:
+        log.info("C++ core NOT available — using pure Python (slower)")
+
     torch.manual_seed(cfg.seed)
     np.random.seed(cfg.seed)
     random.seed(cfg.seed)
@@ -521,7 +586,22 @@ def train(cfg: TrainConfig, resume_path: Optional[str] = None):
 
     # ── global model & optimizer ─────────────────────────────────────
     model = ChessNet(cfg.in_channels, cfg.num_blocks, cfg.channels).to(device)
-    model.share_memory()   # needed for multiprocessing gradient sharing
+    model.share_memory()   # needed for checkpointing / state_dict access
+
+    # ── Enable TF32 tensor cores on Ampere+ GPUs (RTX 30/40 series) ──
+    # This gives ~3x faster matmuls with negligible precision loss.
+    torch.set_float32_matmul_precision('high')
+
+    # ── TorchScript the model for faster inference ────────────────────
+    # torch.jit.script() compiles the model to a static graph,
+    # eliminating Python overhead on every forward pass.
+    # Works on Windows (unlike torch.compile which requires Triton/Linux).
+    try:
+        compiled_model = torch.jit.script(model)
+        log.info("Model compiled with TorchScript (Windows-compatible)")
+    except Exception as e:
+        compiled_model = model
+        log.info(f"TorchScript failed, using eager mode: {e}")
 
     # Lock that workers must hold when reading global model weights.
     # Prevents race between state_dict() and backward() touching BN stats.
@@ -570,15 +650,13 @@ def train(cfg: TrainConfig, resume_path: Optional[str] = None):
         log.info(f"{'═'*60}")
 
         # ── self-play: collect full games (main thread) ──────────────
-        log.info(f"  Self-play: collecting {cfg.games_per_iter} games …")
-        model.eval()
+        log.info(f"  Self-play: collecting {cfg.games_per_iter} games sequentially …")
+        compiled_model.eval()
         for g in range(cfg.games_per_iter):
-            game_exps = play_one_game(model, device, cfg)
+            game_exps = play_one_game(compiled_model, device, cfg)
             replay_buffer.push(game_exps)
-            if (g + 1) % 5 == 0:
-                log.info(f"    Game {g+1}/{cfg.games_per_iter}  "
-                         f"buf={len(replay_buffer)}  "
-                         f"moves={len(game_exps)}")
+            log.info(f"    Game {g+1}/{cfg.games_per_iter} completed. "
+                     f"buf={len(replay_buffer)}  moves={len(game_exps)}")
 
         # ── wait until buffer is populated enough ────────────────────
         if len(replay_buffer) < cfg.min_buffer_before_train:
@@ -593,9 +671,9 @@ def train(cfg: TrainConfig, resume_path: Optional[str] = None):
         for epoch in range(cfg.num_epochs):
             batch = replay_buffer.sample(cfg.batch_size)
             with model_lock:
-                model.train()
-                losses = train_on_batch(model, optimizer, batch, cfg, device, scaler)
-                model.eval()
+                compiled_model.train()
+                losses = train_on_batch(compiled_model, optimizer, batch, cfg, device, scaler)
+                compiled_model.eval()
             epoch_losses.append(losses)
 
         avg_losses = {
@@ -632,6 +710,7 @@ def train(cfg: TrainConfig, resume_path: Optional[str] = None):
                 f"  │  buffer_size = {len(replay_buffer)}\n"
                 f"  │  lr          = {scheduler.get_last_lr()[0]:.6f}\n"
                 f"  │  elapsed     = {elapsed:.1f}s\n"
+                f"  │  cpp_core    = {'YES' if _USE_CPP else 'NO'}\n"
                 f"  └─────────────────────────────────────────────────"
             )
 
@@ -671,13 +750,18 @@ def evaluate(model_path: str, cfg: TrainConfig, num_games: int = 10):
     results = {"white_win": 0, "black_win": 0, "draw": 0}
 
     for i in range(num_games):
-        mcts = MCTS(model, device, num_simulations=cfg.mcts_sims)
-        gs   = ce.GameState()
+        mcts_obj = create_mcts(model, device, num_simulations=cfg.mcts_sims)
+
+        if _USE_CPP:
+            gs = _cpp.GameState()
+        else:
+            gs = ce.GameState()
+
         move_count = 0
 
         while move_count < cfg.max_game_moves:
             temperature = 1e-3   # greedy during evaluation
-            _, best_move = mcts.get_move_probs(gs, temperature=temperature)
+            _, best_move = mcts_obj.get_move_probs(gs, temperature=temperature)
             if best_move is None:
                 break
             gs.make_move(best_move)
@@ -707,10 +791,10 @@ def parse_args():
     p.add_argument("--mode",       choices=["train", "eval"], default="train")
     p.add_argument("--resume",     type=str, default=None,  help="Checkpoint path to resume")
     p.add_argument("--eval-model", type=str, default=None,  help="Model path for eval mode")
-    p.add_argument("--iters",      type=int, default=200)
-    p.add_argument("--workers",    type=int, default=2)
+    p.add_argument("--iters",      type=int, default=1000)
+    p.add_argument("--workers",    type=int, default=0)
     p.add_argument("--sims",       type=int, default=50,    help="MCTS simulations per move")
-    p.add_argument("--games",      type=int, default=2,     help="Self-play games per iter")
+    p.add_argument("--games",      type=int, default=10,    help="Self-play games per iter")
     p.add_argument("--batch",      type=int, default=256)
     p.add_argument("--epochs",     type=int, default=3,     help="Train epochs per iter")
     p.add_argument("--lr",         type=float, default=1e-3)

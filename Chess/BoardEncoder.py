@@ -1,19 +1,43 @@
+"""
+BoardEncoder.py — Encode a GameState into an (18, 8, 8) numpy tensor.
+Uses the C++ implementation when available (much faster), falls back
+to pure Python otherwise.
+"""
+
 import numpy as np
 
 PIECE_ORDER = "PRNBQK"
 PIECE_TO_PLANE = {p: i for i, p in enumerate(PIECE_ORDER)}
+
+# ── Try to load C++ encoder ──────────────────────────────────────────────────
+_USE_CPP = False
+try:
+    import alphaz0_cpp as _cpp
+    _USE_CPP = True
+except ImportError:
+    pass
 
 
 def encode(gs) -> np.ndarray:
     """
     Parameters
     ----------
-    gs : chess_engine.GameState
+    gs : chess_engine.GameState  (Python or C++)
 
     Returns
     -------
     np.ndarray  shape (18, 8, 8)  dtype float32
     """
+    # ── Fast path: C++ encoder ───────────────────────────────────────────────
+    if _USE_CPP:
+        # If gs is already a C++ GameState, encode directly
+        if isinstance(gs, _cpp.GameState):
+            return np.array(_cpp.encode_board(gs), dtype=np.float32)
+        # If gs is a Python GameState, convert to C++ first
+        # Actually for the C++ encoder we need a C++ GameState.
+        # Fall through to pure Python for Python GameState objects.
+
+    # ── Pure Python fallback ─────────────────────────────────────────────────
     planes = np.zeros((18, 8, 8), dtype=np.float32)
 
     for r in range(8):

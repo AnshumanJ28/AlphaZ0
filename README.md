@@ -9,6 +9,12 @@
 [![Pygame](https://img.shields.io/badge/Pygame-2.6+-00CC44?style=for-the-badge&logo=python&logoColor=white)](https://pygame.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-alphaz0.onrender.com-FF6B6B?style=for-the-badge)](https://alphaz0.onrender.com)
+[![GitHub](https://img.shields.io/badge/GitHub-AnshumanJ28%2FAlphaZ0-181717?style=for-the-badge&logo=github)](https://github.com/AnshumanJ28/AlphaZ0)
+
+<br/>
+
+[![v1 — Pure Python](https://img.shields.io/badge/v1-Pure%20Python%20%7C%20tag%3A%20v1.0-6e40c9?style=flat-square&logo=github)](https://github.com/AnshumanJ28/AlphaZ0/tree/v1.0)
+[![v2 — C++ Core](https://img.shields.io/badge/v2-C%2B%2B%20Core%20%7C%20main-00b4d8?style=flat-square&logo=github)](https://github.com/AnshumanJ28/AlphaZ0/tree/main)
 
 <br/>
 
@@ -18,7 +24,7 @@
 
 <br/>
 
-[**Play Online →**](https://alphaz0.onrender.com) · [Architecture](#architecture-deep-dive) · [Training Guide](#how-training-makes-the-bot-stronger) · [Get Started](#running-the-project)
+[**Play Online →**](https://alphaz0.onrender.com) · [**GitHub →**](https://github.com/AnshumanJ28/AlphaZ0) · [Architecture](#architecture-deep-dive) · [Training Guide](#how-training-makes-the-bot-stronger) · [Get Started](#running-the-project)
 
 ---
 
@@ -29,21 +35,57 @@
 
 <br/>
 
+---
+
+<div align="center">
+
+### 🚧 Work in Progress — Training Active
+
+<table>
+<tr>
+<td align="center" width="64">⚠️</td>
+<td>
+
+**AlphaZ0 is actively being trained and developed.**
+The deployed checkpoint (~100 Elo) represents an early snapshot — model weights update as training runs accumulate. The C++ accelerated v2 backend is currently being integrated and battle-tested. Expect strength to increase significantly over the coming weeks.
+
+</td>
+</tr>
+<tr>
+<td align="center">🔬</td>
+<td>Policy loss is trending downward each cycle. Check back for stronger checkpoints as training progresses.</td>
+</tr>
+<tr>
+<td align="center">🛠️</td>
+<td>v2 architecture (C++ MCTS core + FastAPI backend) is merged but still undergoing stabilisation and performance tuning.</td>
+</tr>
+</table>
+
+</div>
+
+---
+
+<br/>
+
 ## Table of Contents
 
 <details>
 <summary><b>Click to expand</b></summary>
 
 1. [What Is This?](#what-is-this)
-2. [Live Demo](#live-demo)
-3. [System Architecture — The Big Picture](#system-architecture--the-big-picture)
-4. [Architecture Deep Dive](#architecture-deep-dive)
-5. [File-by-File Breakdown](#file-by-file-breakdown)
-6. [How Training Makes the Bot Stronger](#how-training-makes-the-bot-stronger)
-7. [Training Logs — What They Tell You](#training-logs--what-they-tell-you)
-8. [Running the Project](#running-the-project)
-9. [Project Structure](#project-structure)
-10. [Dependencies](#dependencies)
+2. [Version History — v1 → v2](#version-history--v1--v2)
+3. [Live Demo](#live-demo)
+4. [System Architecture — The Big Picture](#system-architecture--the-big-picture)
+5. [Architecture Deep Dive](#architecture-deep-dive)
+6. [File-by-File Breakdown](#file-by-file-breakdown)
+7. [How Training Makes the Bot Stronger](#how-training-makes-the-bot-stronger)
+8. [Training Logs — What They Tell You](#training-logs--what-they-tell-you)
+9. [Running the Project](#running-the-project)
+   - [Quick Start](#quick-start)
+   - [Training](#training)
+   - [Hosting / Deployment](#hosting--deployment)
+10. [Project Structure](#project-structure)
+11. [Dependencies](#dependencies)
 
 </details>
 
@@ -60,6 +102,73 @@ Rules (chesseng.py)  →  Search (mcts.py)  →  Intuition (NeuralNet.py)
         ↑                                              ↓
         └────────── Training (Train.py) teaches this ──┘
 ```
+
+<br/>
+
+---
+
+## Version History — v1 → v2
+
+AlphaZ0 has gone through two distinct architectural generations. Both versions share the same neural network design and training philosophy — the differences are in the **performance-critical paths**.
+
+<details open>
+<summary><b>v1 — Pure Python (original) &nbsp; <a href="https://github.com/AnshumanJ28/AlphaZ0/tree/v1.0">→ Browse on GitHub (tag: v1.0)</a></b></summary>
+
+| Component | Implementation |
+|:---|:---|
+| Chess rules engine | `chesseng.py` — pure Python |
+| Board encoder | `BoardEncoder.py` — NumPy |
+| MCTS search | `mcts.py` — pure Python, single-threaded |
+| Training pipeline | `Train.py` — A3C with Python threading |
+| Web server | Static file serving (`FE.html`) |
+| Web backend | None — frontend-only |
+
+**Characteristic:** Easy to read and modify. MCTS runs at ~50–200 sims/move on CPU. Self-play games are relatively slow due to Python overhead in the inner search loop.
+
+> **Download / browse v1:** [`github.com/AnshumanJ28/AlphaZ0/tree/v1.0`](https://github.com/AnshumanJ28/AlphaZ0/tree/v1.0)
+
+</details>
+
+<details open>
+<summary><b>v2 — C++ accelerated core (current) 🚧 WIP &nbsp; <a href="https://github.com/AnshumanJ28/AlphaZ0/tree/main">→ Browse on GitHub (main)</a></b></summary>
+
+| Component | Implementation |
+|:---|:---|
+| Chess rules engine | `cpp/chess_engine.hpp` — native C++17 |
+| Board encoder | `cpp/board_encoder.hpp` — C++ (zero-copy to PyTorch) |
+| MCTS search | `cpp/mcts.hpp` — C++ with Python callback for NN eval |
+| Self-play loop | `cpp/self_play.hpp` — full C++ game loop |
+| Python bindings | `cpp/bindings.cpp` — pybind11, compiled to `alphaz0_cpp.pyd` |
+| Training pipeline | `Train.py` — unchanged; uses C++ self-play when available |
+| Web backend | `app.py` — FastAPI, serves `index.html`, exposes `/get_move` |
+| Web frontend | `index.html` — richer UI, talks to FastAPI via REST |
+
+**Characteristic:** The hot loop (move generation, MCTS node expansion, game simulation) runs in native C++ at full CPU speed. Python is only called back for neural network inference. Target: 5–10× speedup over v1 for self-play throughput.
+
+> [!IMPORTANT]
+> v2 falls back to the pure-Python stack automatically if the compiled extension (`alphaz0_cpp.pyd`) is not found. You can always run `app.py` without building the C++ module — it will just be slower.
+
+> **Browse v2 (current `main`):** [`github.com/AnshumanJ28/AlphaZ0`](https://github.com/AnshumanJ28/AlphaZ0)
+
+</details>
+
+### What Changed in v2
+
+```diff
+- Static FE.html (no backend, no bot move API)
++ FastAPI app.py → /get_move REST endpoint → bot thinks server-side
+
+- Pure Python MCTS inner loop
++ C++ MCTS with pybind11 callback for NN eval
+
+- chesseng.py used everywhere (rules + encoding)
++ cpp/chess_engine.hpp + cpp/board_encoder.hpp for hot paths
+
+- No server needed to play vs bot in browser
++ uvicorn app.py serves both the UI and the move API
+```
+
+---
 
 <br/>
 
@@ -100,36 +209,56 @@ A lightweight browser interface mirroring the desktop experience — built with 
 
 ## System Architecture — The Big Picture
 
+> [!NOTE]
+> The diagram below reflects the **current v2 architecture** — C++ core with FastAPI backend. See the [Version History](#version-history--v1--v2) section for the original pure-Python v1 design.
+
 ### End-to-End Data Flow
 
 ```mermaid
 flowchart TB
     subgraph CLIENT["Client Layer"]
         direction LR
-        WEB["Web UI<br/><i>FE.html</i><br/>chess.js · chessboard.js"]
+        WEB["Web UI<br/><i>index.html</i><br/>chess.js · chessboard.js"]
         DESKTOP["Desktop UI<br/><i>chesmain.py</i><br/>Pygame"]
     end
 
-    subgraph ENGINE["Core Engine"]
+    subgraph SERVER["Web Backend (v2)"]
         direction TB
-        RULES["Chess Rules Engine<br/><i>chesseng.py</i><br/>Move Gen · Validation · Game State"]
-        ENCODER["Board Encoder<br/><i>BoardEncoder.py</i><br/>GameState → (18,8,8) Tensor"]
-        RULES --> ENCODER
+        API["FastAPI Server<br/><i>app.py</i><br/>uvicorn · /get_move endpoint"]
+        CPP_CHECK{"C++ core<br/>available?"}
+        API --> CPP_CHECK
+    end
+
+    subgraph CPP_CORE["C++ Core — alphaz0_cpp.pyd (v2)"]
+        direction TB
+        CPP_RULES["Chess Engine<br/><i>chess_engine.hpp</i><br/>Native C++17 move gen"]
+        CPP_ENC["Board Encoder<br/><i>board_encoder.hpp</i><br/>GameState → float[1152]"]
+        CPP_MCTS["MCTS Search<br/><i>mcts.hpp</i><br/>PUCT · C++ node tree"]
+        CPP_SP["Self-Play Loop<br/><i>self_play.hpp</i><br/>(s, π, z) collection"]
+        CPP_RULES --> CPP_ENC
+        CPP_ENC --> CPP_MCTS
+        CPP_MCTS --> CPP_SP
+    end
+
+    subgraph PY_FALLBACK["Python Fallback (v1 stack)"]
+        direction TB
+        RULES["Chess Rules<br/><i>chesseng.py</i>"]
+        ENCODER["Board Encoder<br/><i>BoardEncoder.py</i>"]
+        PY_MCTS["MCTS<br/><i>mcts.py</i>"]
+        RULES --> ENCODER --> PY_MCTS
     end
 
     subgraph BRAIN["Neural Intelligence"]
         direction TB
-        NN["Neural Network<br/><i>NeuralNet.py</i><br/>10 ResBlocks · Policy + Value Heads"]
-        MCTS_NODE["MCTS Search<br/><i>mcts.py</i><br/>PUCT Selection · Dirichlet Noise"]
-        NN <-->|"Policy priors<br/>Value estimates"| MCTS_NODE
+        NN["Neural Network<br/><i>NeuralNet.py</i><br/>ResNet · Policy + Value Heads"]
     end
 
     subgraph TRAINING["Training Pipeline"]
         direction TB
-        SELFPLAY["Self-Play Engine<br/><i>Train.py</i><br/>Generate (s, π, z) triples"]
-        BUFFER["Replay Buffer<br/>Thread-safe deque<br/>Random sampling"]
-        A3C["A3C Workers<br/>×4 parallel threads<br/>GAE advantages"]
-        TRAINER["Batch Trainer<br/>Policy CE + Value MSE<br/>+ Entropy bonus"]
+        SELFPLAY["Self-Play<br/><i>Train.py</i><br/>Uses C++ loop when available"]
+        BUFFER["Replay Buffer<br/>Thread-safe deque"]
+        A3C["A3C Workers ×4<br/>GAE advantages"]
+        TRAINER["Batch Trainer<br/>Policy CE + Value MSE"]
         SELFPLAY --> BUFFER
         BUFFER --> TRAINER
         A3C -->|"Push gradients"| TRAINER
@@ -141,17 +270,22 @@ flowchart TB
         ITER["chess_net_iter_N.pt"]
     end
 
-    WEB -->|"User moves"| RULES
-    DESKTOP -->|"User moves"| RULES
-    ENCODER -->|"Board tensor"| NN
-    MCTS_NODE -->|"Best move"| CLIENT
-    MCTS_NODE -->|"Visit distributions"| SELFPLAY
+    WEB -->|"REST /get_move"| API
+    DESKTOP -->|"Direct call"| PY_MCTS
+    CPP_CHECK -->|"Yes — fast path"| CPP_CORE
+    CPP_CHECK -->|"No — fallback"| PY_FALLBACK
+    CPP_MCTS -->|"NN eval callback"| NN
+    PY_MCTS <-->|"Policy + Value"| NN
+    CPP_SP -->|"Experiences"| SELFPLAY
+    API -->|"Best move"| WEB
     TRAINER -->|"Updated weights"| NN
     TRAINER -->|"Save"| CHECKPOINTS
     CHECKPOINTS -->|"Load"| NN
 
     style CLIENT fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#eee
-    style ENGINE fill:#1a1a2e,stroke:#0f3460,stroke-width:2px,color:#eee
+    style SERVER fill:#1a1a2e,stroke:#ff9f43,stroke-width:2px,color:#eee
+    style CPP_CORE fill:#0d2137,stroke:#00b4d8,stroke-width:2px,color:#eee
+    style PY_FALLBACK fill:#1a1a2e,stroke:#533483,stroke-width:1px,color:#aaa
     style BRAIN fill:#1a1a2e,stroke:#533483,stroke-width:2px,color:#eee
     style TRAINING fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#eee
     style CHECKPOINTS fill:#1a1a2e,stroke:#16213e,stroke-width:2px,color:#eee
@@ -519,17 +653,29 @@ elapsed     = 342s   ← time per iteration
 ### Quick Start
 
 ```bash
-# Clone and install
-git clone https://github.com/YOUR_USERNAME/AlphaZ0.git
-cd AlphaZ0
-pip install pygame torch numpy
+# Clone the repo
+git clone https://github.com/AnshumanJ28/AlphaZ0.git
+cd AlphaZ0/Chess
 
-# Play the game (desktop UI)
+# ── Option A: Desktop UI (v1 stack, no server needed) ──────────────────
+pip install pygame torch numpy
 python chesmain.py
 
-# Or open FE.html in a browser — no install needed
-# Or visit: https://alphaz0.onrender.com
+# ── Option B: Web UI with bot (v2 FastAPI server) ──────────────────────
+pip install -r requirements.txt
+uvicorn app:app --host 0.0.0.0 --port 10000
+# Then open: http://localhost:10000
+
+# ── Option C: Docker (mirrors exactly what Render runs) ────────────────
+docker compose up --build
+# Then open: http://localhost:10000
 ```
+
+> [!TIP]
+> Want the v1 pure-Python version only? Check out the `v1.0` tag:
+> ```bash
+> git clone --branch v1.0 https://github.com/AnshumanJ28/AlphaZ0.git
+> ```
 
 ### Training
 
@@ -547,26 +693,106 @@ python Train.py --resume checkpoints/chess_net_best.pt --iters 300
 python Train.py --mode eval --eval-model checkpoints/chess_net_best.pt --eval-games 20
 ```
 
+### Deploying on Render
+
+> [!IMPORTANT]
+> The repo already contains `render.yaml` (at the root) and `Chess/Dockerfile` — Render picks both up automatically. No manual config needed beyond connecting the repo.
+
+#### Step-by-step
+
+**1. Push your repo to GitHub**
+```bash
+# From AlphaZ0 root:
+powershell -ExecutionPolicy Bypass -File git_setup.ps1
+```
+
+**2. Create the service on Render**
+- Go to [render.com](https://render.com) → sign in
+- Click **New → Blueprint**
+- Connect your GitHub account and select **AnshumanJ28/AlphaZ0**
+- Render finds `render.yaml` and shows a preview — click **Apply**
+
+**3. Wait for build** (~8–12 min on first deploy — CMake compiles the C++ extension)
+
+**4. Visit your URL** — Render assigns `https://alphaz0-xxxx.onrender.com`
+
+#### Free tier gotchas
+
+| Issue | Cause | Fix |
+|:---|:---|:---|
+| **Spins down after 15 min idle** | Render free suspends inactive services | First request after sleep takes ~30 s to wake up; consider [UptimeRobot](https://uptimerobot.com) to ping every 5 min |
+| **Slow bot response** | CPU inference with no GPU | `MCTS_SIMS=50` is pre-set in `render.yaml`; don't increase beyond 80 on free |
+| **Checkpoints lost on redeploy** | No persistent disk on free tier | Train locally, commit `checkpoints/chess_net_best.pt` to git, and it'll be baked into the image |
+| **Build fails: cmake not found** | Docker build uses slim base | The `Dockerfile` already installs cmake in the builder stage; if it fails, check build logs for apt errors |
+
+#### Environment variables (set in Render dashboard)
+
+| Variable | Value | Description |
+|:---|:---:|:---|
+| `PORT` | `10000` | Auto-set by Render — **don't change** |
+| `MCTS_SIMS` | `50` | Bot strength — 50 keeps responses fast on free CPU |
+| `PYTHONUNBUFFERED` | `1` | Logs appear instantly in Render's log stream |
+
+#### Local test (mirrors Render exactly)
+
+```bash
+cd AlphaZ0
+docker compose up --build   # builds same image, runs on port 10000
+# Open http://localhost:10000
+```
+
 ---
 
 ## Project Structure
 
 ```
-AlphaZ0/
-├── chesmain.py              ← Pygame desktop UI, menu, bot integration
-├── FE.html                  ← Browser UI (deployed at alphaz0.onrender.com)
-├── chesseng.py              ← Chess rules, move generation, game state
-├── NeuralNet.py             ← Neural network (policy + value heads)
-├── mcts.py                  ← Monte Carlo Tree Search with PUCT
-├── BoardEncoder.py          ← Board → (18,8,8) tensor conversion
-├── Train.py                 ← Self-play + A3C training pipeline
-├── checkpoints/
-│   ├── chess_net_best.pt       ← Best model (loaded by UI)
-│   ├── chess_net_final.pt      ← Last model after training
-│   └── chess_net_iter_XXXX.pt  ← Per-iteration snapshots
-└── Image/
-    ├── wP.png  wR.png  wN.png  wB.png  wQ.png  wK.png
-    └── bP.png  bR.png  bN.png  bB.png  bQ.png  bK.png
+AlphaZ0/                             ← repo root
+│
+│  ── Render Deployment (root level) ────────────────────────────
+├── render.yaml                    ← Render Blueprint (auto-detected at repo root)
+│
+└── Chess/                         ← all source lives here
+    │
+    │  ── v1 / Shared Python Stack ──────────────────────────
+    ├── chesseng.py              ← Chess rules, move generation, game state
+    ├── BoardEncoder.py          ← Board → (18,8,8) tensor
+    ├── NeuralNet.py             ← ResNet policy + value heads (shared v1 & v2)
+    ├── mcts.py                  ← Pure-Python MCTS with PUCT (v1 + Desktop fallback)
+    ├── Train.py                 ← Self-play + A3C training pipeline
+    │
+    │  ── v2 C++ Accelerated Core ────────────────────────────
+    ├── cpp/
+    │   ├── chess_engine.hpp     ← C++17 chess rules & move generation
+    │   ├── board_encoder.hpp    ← C++ board → float tensor encoder
+    │   ├── mcts.hpp             ← C++ MCTS (NN eval via Python callback)
+    │   ├── self_play.hpp        ← C++ full self-play game loop
+    │   └── bindings.cpp         ← pybind11 Python bindings
+    ├── setup.py                 ← CMake build script for C++ extension
+    ├── CMakeLists.txt           ← CMake config
+    ├── alphaz0_cpp.*.pyd        ← Compiled extension (gitignored, built in Docker)
+    │
+    │  ── v2 Web Backend ──────────────────────────────────────
+    ├── app.py                   ← FastAPI server · serves UI + /get_move API
+    ├── index.html               ← Web UI (chess.js + chessboard.js)
+    │
+    │  ── Desktop UI ──────────────────────────────────────────
+    ├── chesmain.py              ← Pygame desktop UI, menu, bot integration
+    │
+    │  ── Docker / Hosting ─────────────────────────────────────
+    ├── Dockerfile               ← Multi-stage: compile C++ → lean runtime
+    ├── docker-compose.yml       ← Local mirror of Render for testing
+    ├── .env.example             ← Environment variable template
+    │
+    │  ── Model Checkpoints ───────────────────────────────────
+    ├── checkpoints/
+    │   ├── chess_net_best.pt    ← Best model (commit to bake into Render image)
+    │   ├── chess_net_final.pt   ← Last model after training run
+    │   └── chess_net_iter_N.pt  ← Per-iteration snapshots
+    │
+    │  ── Assets ──────────────────────────────────────────────
+    └── Image/
+        ├── wP.png  wR.png  wN.png  wB.png  wQ.png  wK.png
+        └── bP.png  bR.png  bN.png  bB.png  bQ.png  bK.png
 ```
 
 ---
@@ -586,7 +812,7 @@ pip install pygame torch numpy
 > [!TIP]
 > **GPU is optional** but recommended for training. The bot runs fine on CPU for playing.
 >
-> The web UI (`FE.html`) has **no Python dependencies** — it runs entirely in the browser via CDN-hosted chess.js and chessboard.js.
+> The web UI (`index.html`) is served by the FastAPI backend (`app.py`) in v2, or can be opened directly in a browser for the v1 static version.
 
 ---
 

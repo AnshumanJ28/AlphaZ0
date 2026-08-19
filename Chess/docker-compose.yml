@@ -1,0 +1,40 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml — Local development mirror of the Render deployment
+#
+# Use this to test the exact same Docker image locally before pushing to Render.
+#
+#   docker compose up --build        # build image + start server
+#   docker compose up                # start with cached image
+#   docker compose down              # stop
+#
+# The image and env vars here match render.yaml exactly.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  server:
+    build:
+      context: Chess          # same as dockerContext in render.yaml
+      dockerfile: Dockerfile  # same as dockerfilePath (relative to context)
+    image: alphaz0:local
+    container_name: alphaz0
+    ports:
+      - "10000:10000"         # mirroring Render's PORT=10000
+    environment:
+      PORT: "10000"
+      MCTS_SIMS: "50"         # same default as render.yaml
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      # Mount checkpoints so you can drop a trained .pt file without rebuilding.
+      # On Render free tier there's no persistent disk — bake the checkpoint
+      # into the image or re-upload it each deploy.
+      - ./Chess/checkpoints:/app/checkpoints
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:10000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s   # allow model load time on first start
+      retries: 3

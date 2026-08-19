@@ -1,0 +1,57 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# render.yaml — Render Blueprint for AlphaZ0
+#
+# How to deploy:
+#   1. Push this repo to GitHub (github.com/AnshumanJ28/AlphaZ0)
+#   2. Go to render.com → New → Blueprint
+#   3. Connect your GitHub repo — Render finds this file automatically
+#   4. Click "Apply" — done. First deploy takes ~10 min (C++ compile + pip)
+#
+# Docs: https://render.com/docs/blueprint-spec
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  - type: web
+    name: alphaz0
+    runtime: docker
+
+    # Render builds relative to the repo root.
+    # dockerContext is the folder passed as Docker build context (like `docker build ./Chess`).
+    # dockerfilePath is relative to the REPO ROOT.
+    dockerfilePath: Chess/Dockerfile
+    dockerContext: Chess
+
+    plan: free          # 512 MB RAM · 0.1 vCPU · spins down after 15 min idle
+    region: oregon      # us-west-2 — fastest for most users, change if you prefer
+
+    # Render uses this path to decide if the container is healthy.
+    # Must return HTTP 200. app.py exposes GET /health.
+    healthCheckPath: /health
+
+    # ── Environment variables ─────────────────────────────────────────────────
+    envVars:
+      # Render always sets PORT=10000 internally. Declaring it here makes it
+      # explicit and visible in the Render dashboard.
+      - key: PORT
+        value: 10000
+
+      # Number of MCTS simulations per bot move.
+      # Free tier has a 30s request timeout — 50 sims keeps responses fast.
+      # Bump to 80-150 on a paid plan.
+      - key: MCTS_SIMS
+        value: 50
+
+      # Python output is line-buffered by default in Docker — unbuffered
+      # means logs appear instantly in the Render log stream.
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+    # ── Persistent disk (PAID plans only) ─────────────────────────────────────
+    # Free tier does not support persistent disks.
+    # To persist trained checkpoints between deploys, upgrade to Starter+ and
+    # uncomment the block below:
+    #
+    # disk:
+    #   name: checkpoints
+    #   mountPath: /app/checkpoints
+    #   sizeGB: 1

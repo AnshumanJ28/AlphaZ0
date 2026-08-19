@@ -109,3 +109,39 @@ def get_policy_priors(
 
     priors = (masked / total).tolist()
     return {m: p for m, p in zip(legal_moves, priors)}
+
+
+# ─── C++ MCTS Evaluation Callback ────────────────────────────────────────────
+
+import numpy as np
+import threading
+
+# PyTorch CUDA operations can cause silent segfaults on Windows if called
+# concurrently from multiple threads. We serialize the GPU forward pass globally.
+_GLOBAL_EVAL_LOCK = threading.Lock()
+
+def make_eval_fn(model: ChessNet, device: torch.device):
+    """
+    Create an evaluation callback for the C++ MCTS engine.
+    """
+    import numpy as np
+
+    def eval_fn(board_np):
+        """
+        board_np : numpy array of shape (18, 8, 8), float32
+        Returns  : (log_policy, value) where log_policy is (4096,) numpy array
+        """
+        # Safe copy to prevent C++ read-only pointer segfaults
+        board_tensor = torch.tensor(
+            np.array(board_np), dtype=torch.float32
+        ).unsqueeze(0).to(device)
+
+        with _GLOBAL_EVAL_LOCK:
+            with torch.no_grad():
+                log_policy, value = model(board_tensor)
+
+        log_policy_np = log_policy[0].cpu().numpy().astype(np.float32)
+        value_float = value.item()
+        return (log_policy_np, value_float)
+
+    return eval_fn

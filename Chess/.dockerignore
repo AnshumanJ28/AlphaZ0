@@ -1,0 +1,54 @@
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ── C++ build artifacts ───────────────────────────────────────────────────────
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+*.pyd
+*.so
+
+# ── Python packaging ──────────────────────────────────────────────────────────
+*.egg-info/
+dist/
+.eggs/
+
+# ── Git & version control ─────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Environment files ─────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── OS files ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Temporary / training logs ─────────────────────────────────────────────────
+tmp/
+temp/
+training_logs/
+runs/
+*.log
+
+# ── Desktop UI (not needed on server) ────────────────────────────────────────
+chesmain.py
+
+# ── Checkpoints: comment out to include model weights in the image ────────────
+# If you want the model baked into the image, comment the next two lines.
+# Otherwise, mount ./checkpoints as a Docker volume.
+# checkpoints/

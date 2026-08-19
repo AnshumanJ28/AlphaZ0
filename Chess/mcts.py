@@ -1,14 +1,132 @@
+"""
+mcts.py — Monte Carlo Tree Search.
+
+Uses the C++ MCTS implementation when available (much faster),
+falls back to pure Python otherwise.
+"""
+
 import math
 import numpy as np
 import torch
 
 import BoardEncoder
-from NeuralNet import ChessNet, get_policy_priors
+from NeuralNet import ChessNet, get_policy_priors, make_eval_fn
 
 C_PUCT = 1.5          # exploration constant
 DIRICHLET_ALPHA = 0.3 # noise at root to encourage exploration
 DIRICHLET_EPS   = 0.25
 
+# ── Try to load C++ MCTS ─────────────────────────────────────────────────────
+_USE_CPP = False
+try:
+    import alphaz0_cpp as _cpp
+    _USE_CPP = True
+except ImportError:
+    pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  C++ MCTS Wrapper (preferred — much faster)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class CppMCTS:
+    """
+    Wrapper around the C++ MCTS implementation.
+    API-compatible with the pure-Python MCTS class below.
+    """
+
+    def __init__(self, model: ChessNet, device: torch.device,
+                 num_simulations: int = 200):
+        self.model = model
+        self.device = device
+        self.num_simulations = num_simulations
+        self.model.eval()
+
+        # Create the evaluation callback for C++
+        self._eval_fn = make_eval_fn(model, device)
+        self._cpp_mcts = _cpp.MCTS(self._eval_fn, num_simulations)
+
+    def get_move_probs(self, gs, temperature: float = 1.0) -> tuple:
+        """
+        Run MCTS from the current game state.
+
+        Parameters
+        ----------
+        gs : GameState (Python or C++)
+        temperature : float
+
+        Returns
+        -------
+        move_probs : dict {move: probability}
+        best_move  : Move
+        """
+        # If gs is a Python GameState, we need to convert to C++ GameState
+        if not isinstance(gs, _cpp.GameState):
+            cpp_gs = _python_gs_to_cpp(gs)
+        else:
+            cpp_gs = gs
+
+        index_probs, best_move_cpp = self._cpp_mcts.get_move_probs(
+            cpp_gs, temperature
+        )
+
+        # Convert C++ Move to Python Move for compatibility
+        if not isinstance(gs, _cpp.GameState):
+            # Need to map back to Python Move objects
+            valid_moves = gs.get_valid_moves()
+            best_move = None
+            move_probs = {}
+            for m in valid_moves:
+                from NeuralNet import move_to_index
+                idx = move_to_index(m)
+                if idx in index_probs:
+                    move_probs[m] = index_probs[idx]
+                if (m.start_row == best_move_cpp.start_row and
+                    m.start_col == best_move_cpp.start_col and
+                    m.end_row == best_move_cpp.end_row and
+                    m.end_col == best_move_cpp.end_col):
+                    best_move = m
+
+            if best_move is None and valid_moves:
+                best_move = valid_moves[0]
+
+            return move_probs, best_move
+        else:
+            # Return C++ Move objects directly
+            move_probs = {}
+            valid = cpp_gs.get_valid_moves()
+            for m in valid:
+                idx = m.to_index()
+                if idx in index_probs:
+                    move_probs[m] = index_probs[idx]
+            return move_probs, best_move_cpp
+
+
+def _python_gs_to_cpp(gs):
+    """Convert a Python GameState to a C++ GameState by replaying moves."""
+    # The simplest approach: create a fresh C++ GameState and replay all moves
+    import chesseng as ce
+    cpp_gs = _cpp.GameState()
+
+    # We can't easily replay since we don't have the full move history with
+    # all flags. Instead, sync the board state directly.
+    # For MCTS purposes, just create a new game and replay the move log.
+    for py_move in gs.move_log:
+        valid = cpp_gs.get_valid_moves()
+        for m in valid:
+            if (m.start_row == py_move.start_row and
+                m.start_col == py_move.start_col and
+                m.end_row == py_move.end_row and
+                m.end_col == py_move.end_col):
+                cpp_gs.make_move(m)
+                break
+
+    return cpp_gs
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Pure Python MCTS (fallback when C++ is not available)
+# ═══════════════════════════════════════════════════════════════════════════════
 
 class MCTSNode:
     __slots__ = ("move", "parent", "children", "N", "W", "Q", "P",
@@ -172,3 +290,18 @@ class MCTS:
         """Deep-copy a GameState. deepcopy is faster than replaying all moves."""
         import copy
         return copy.deepcopy(gs)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Factory function — returns the best available MCTS implementation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def create_mcts(model: ChessNet, device: torch.device,
+                num_simulations: int = 200):
+    """
+    Create the fastest available MCTS instance.
+    Returns CppMCTS if the C++ extension is available, else pure-Python MCTS.
+    """
+    if _USE_CPP:
+        return CppMCTS(model, device, num_simulations)
+    return MCTS(model, device, num_simulations)

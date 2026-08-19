@@ -1,0 +1,61 @@
+# ── Python bytecode ───────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# ── C++ build artifacts ───────────────────────────────────────────────────────
+# Compiled pybind11 extension (platform-specific)
+*.pyd
+*.so
+*.dll
+
+# CMake build directories
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+Makefile
+
+# setuptools / wheel build output
+*.egg-info/
+dist/
+.eggs/
+
+# ── Model checkpoints (large binary files — use Git LFS or cloud storage) ─────
+# Uncomment the lines below if you do NOT want to track model weights in git.
+# If you DO want to commit checkpoints, comment these out and use git-lfs.
+# checkpoints/*.pt
+# checkpoints/*.pth
+# checkpoints/*.ckpt
+
+# ── Training artefacts ────────────────────────────────────────────────────────
+training_logs/
+runs/
+*.log
+*.csv
+
+# ── Environment ───────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Temporary / scratch ───────────────────────────────────────────────────────
+tmp/
+temp/
+*.tmp
+tempCodeRunnerFile.py

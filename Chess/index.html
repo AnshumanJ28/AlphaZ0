@@ -900,18 +900,85 @@ function engineTurn(){
   });
 }
 
-/* Simulated engine response — swap this out for a real fetch() to your
-   FastAPI /get_move endpoint when the backend is ready. */
-function getEngineMove(fen){
-  return new Promise(resolve => {
-    const thinkTime = 450 + Math.random() * 650;
-    window.setTimeout(() => {
-      const moves = game.moves();
-      const move = moves[Math.floor(Math.random() * moves.length)];
-      resolve({ move });
-    }, thinkTime);
+/* ---- AlphaZ0 Backend Connection ----
+   Sends the full move history (UCI strings from chess.js) to the FastAPI
+   backend. The backend replays them through its GameState, runs MCTS,
+   and returns the bot's move.
+
+   API_URL: defaults to same-origin (for deployment), override for dev:
+     const API_URL = 'http://localhost:8000';
+*/
+const API_URL = window.location.origin;  // same-origin for deployed app
+let backendAvailable = true;
+
+// Build UCI move history from chess.js verbose history
+function getMoveHistory(){
+  const hist = game.history({ verbose: true });
+  return hist.map(m => {
+    let uci = m.from + m.to;
+    if (m.promotion) uci += m.promotion;
+    return uci;
   });
 }
+
+function getEngineMove(fen){
+  if (!backendAvailable) {
+    // Fallback: random move (offline mode)
+    return new Promise(resolve => {
+      const thinkTime = 200 + Math.random() * 300;
+      window.setTimeout(() => {
+        const moves = game.moves();
+        const move = moves[Math.floor(Math.random() * moves.length)];
+        resolve({ move });
+      }, thinkTime);
+    });
+  }
+
+  const moveHistory = getMoveHistory();
+
+  return fetch(API_URL + '/get_move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ moves: moveHistory })
+  })
+  .then(resp => {
+    if (!resp.ok) {
+      return resp.json().then(err => { throw new Error(err.detail || 'Backend error'); });
+    }
+    return resp.json();
+  })
+  .then(data => {
+    // data: { from_sq, to_sq, promotion, status }
+    let moveStr = data.from_sq + data.to_sq;
+    if (data.promotion) moveStr += data.promotion;
+    return { move: moveStr };
+  })
+  .catch(err => {
+    console.warn('[AlphaZ0] Backend error, falling back to random:', err.message);
+    // Fallback: random legal move
+    const moves = game.moves();
+    const move = moves[Math.floor(Math.random() * moves.length)];
+    return { move };
+  });
+}
+
+// Check backend health on load
+fetch(API_URL + '/health')
+  .then(r => r.json())
+  .then(data => {
+    backendAvailable = true;
+    const cppTag = data.cpp_core ? ' · C++' : '';
+    console.log(`[AlphaZ0] Backend connected (${data.device}${cppTag}, ${data.sims_default} sims)`);
+    // Update the mode button to show real sims count
+    const botBtn = document.querySelector('[data-mode="bot"]');
+    if (botBtn) botBtn.textContent = `vs AlphaZ0 (${data.sims_default})`;
+  })
+  .catch(() => {
+    backendAvailable = false;
+    console.warn('[AlphaZ0] Backend not available — using random moves');
+    const botBtn = document.querySelector('[data-mode="bot"]');
+    if (botBtn) botBtn.textContent = 'vs AlphaZ0 (offline)';
+  });
 
 /* ---------------- Engine's Inner Monologue ----------------
    Cosmetic, phase-aware "thoughts" that stream in while AlphaZ0 is
