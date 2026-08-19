@@ -17,11 +17,12 @@ target_include_directories(alphaz0_cpp PRIVATE cpp/)
 
 # Optimization flags
 if(MSVC)
-    target_compile_options(alphaz0_cpp PRIVATE /O2 /GL)
-    target_link_options(alphaz0_cpp PRIVATE /LTCG)
+    target_compile_options(alphaz0_cpp PRIVATE /O2)
 else()
-    target_compile_options(alphaz0_cpp PRIVATE -O3 -march=native -flto)
-    target_link_options(alphaz0_cpp PRIVATE -flto)
+    # Do NOT use -march=native in Docker — the build and runtime containers
+    # can run on different CPU hardware (causes SIGILL / exit 132 on Render).
+    # -msse4.1 is a safe baseline supported by all x86-64 hosts since ~2008.
+    target_compile_options(alphaz0_cpp PRIVATE -O2 -msse4.1)
 endif()
 
 # Install the module into the Chess directory
