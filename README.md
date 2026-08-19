@@ -215,6 +215,16 @@ flowchart TB
         MCTS --> SEARCH
         SEARCH --> BEST["Select Best Move<br/>(Highest Visit Count)"]
     end
+
+    style ENGINE fill:#0d1117,stroke:#8b949e,stroke-width:2px,color:#c9d1d9
+    style INPUT fill:#0d1117,stroke:#58a6ff,stroke-width:2px,color:#c9d1d9
+    style MCTS fill:#0d1117,stroke:#3fb950,stroke-width:2px,color:#c9d1d9
+    style SEARCH fill:#0d1117,stroke:#8b949e,stroke-width:2px,color:#c9d1d9
+    style SEL fill:#0d1117,stroke:#58a6ff,stroke-width:2px,color:#c9d1d9
+    style EXP fill:#0d1117,stroke:#d2a8ff,stroke-width:2px,color:#c9d1d9
+    style NN fill:#0d1117,stroke:#ff7b72,stroke-width:2px,color:#c9d1d9
+    style BCK fill:#0d1117,stroke:#f0883e,stroke-width:2px,color:#c9d1d9
+    style BEST fill:#0d1117,stroke:#3fb950,stroke-width:2px,color:#c9d1d9
 ```
 
 ### The Self-Improvement Loop
