@@ -29,7 +29,7 @@
 </div>
 
 > [!NOTE]
-> The web version currently plays at roughly **~100 Elo** (chess.com scale) — an early checkpoint, well below the engine's ceiling. Strength scales directly with training compute: see [How Training Makes the Bot Stronger](#how-training-makes-the-bot-stronger) for how Elo climbs as policy loss drops.
+> The web version currently plays at roughly **~250 Elo** (chess.com scale) — an early checkpoint, well below the engine's ceiling. Strength scales directly with training compute: see [How Training Makes the Bot Stronger](#how-training-makes-the-bot-stronger) for how Elo climbs as policy loss drops.
 
 <br/>
 
