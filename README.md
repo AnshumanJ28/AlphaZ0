@@ -188,6 +188,9 @@ AlphaZ0 has gone through two distinct architectural generations. Both versions s
 
 > The v2 demo runs at approximately **~250 Elo** (chess.com scale) — an early checkpoint. Strength increases as training progresses.
 
+> [!WARNING]
+> **Cold Start Timeout (Render Free Tier):** If you set the bot to play as White on the very first game after the server wakes up, it may time out and fall back to a random move. To prevent this, either play the first game as White yourself, or simply start a new game after the server has fully warmed up.
+
 ---
 
 ## System Architecture — The Big Picture
