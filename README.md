@@ -6,15 +6,13 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
-[![Pygame](https://img.shields.io/badge/Pygame-2.6+-00CC44?style=for-the-badge&logo=python&logoColor=white)](https://pygame.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-[![Live Demo](https://img.shields.io/badge/Live_Demo-alphaz0.onrender.com-FF6B6B?style=for-the-badge)](https://alphaz0.onrender.com)
 [![GitHub](https://img.shields.io/badge/GitHub-AnshumanJ28%2FAlphaZ0-181717?style=for-the-badge&logo=github)](https://github.com/AnshumanJ28/AlphaZ0)
 
 <br/>
 
-[![v1 — Pure Python](https://img.shields.io/badge/v1-Pure%20Python%20%7C%20tag%3A%20v1.0-6e40c9?style=flat-square&logo=github)](https://github.com/AnshumanJ28/AlphaZ0/tree/v1.0)
-[![v2 — C++ Core](https://img.shields.io/badge/v2-C%2B%2B%20Core%20%7C%20main-00b4d8?style=flat-square&logo=github)](https://github.com/AnshumanJ28/AlphaZ0/tree/main)
+[![v1 — Static](https://img.shields.io/badge/v1-Static%20Frontend-6e40c9?style=flat-square&logo=render)](https://alphaz0.onrender.com)
+[![v2 — FastAPI + C++](https://img.shields.io/badge/v2-FastAPI%20%2B%20C%2B%2B%20Core-00b4d8?style=flat-square&logo=render)](https://alphaz0-2.onrender.com)
 
 <br/>
 
@@ -24,7 +22,7 @@
 
 <br/>
 
-[**Play Online →**](https://alphaz0.onrender.com) · [**GitHub →**](https://github.com/AnshumanJ28/AlphaZ0) · [Architecture](#architecture-deep-dive) · [Training Guide](#how-training-makes-the-bot-stronger) · [Get Started](#running-the-project)
+[**v1 (Static) →**](https://alphaz0.onrender.com) · [**v2 (Bot) →**](https://alphaz0-2.onrender.com) · [**GitHub →**](https://github.com/AnshumanJ28/AlphaZ0) · [Architecture](#architecture-deep-dive) · [Get Started](#running-the-project)
 
 ---
 
@@ -39,25 +37,19 @@
 
 <div align="center">
 
-### 🚧 Work in Progress — Training Active
+### Work in Progress — Training Active
 
 <table>
 <tr>
-<td align="center" width="64">⚠️</td>
 <td>
 
 **AlphaZ0 is actively being trained and developed.**
-The deployed checkpoint (~100 Elo) represents an early snapshot — model weights update as training runs accumulate. The C++ accelerated v2 backend is currently being integrated and battle-tested. Expect strength to increase significantly over the coming weeks.
+The deployed checkpoint (~100 Elo) represents an early snapshot — model weights update as training runs accumulate. The C++ accelerated v2 backend is currently being integrated and battle-tested.
 
 </td>
 </tr>
 <tr>
-<td align="center">🔬</td>
-<td>Policy loss is trending downward each cycle. Check back for stronger checkpoints as training progresses.</td>
-</tr>
-<tr>
-<td align="center">🛠️</td>
-<td>v2 architecture (C++ MCTS core + FastAPI backend) is merged but still undergoing stabilisation and performance tuning.</td>
+<td>Policy loss is trending downward each cycle. The v2 architecture (C++ MCTS core + FastAPI backend) is merged but still undergoing stabilisation.</td>
 </tr>
 </table>
 
@@ -187,23 +179,14 @@ AlphaZ0 has gone through two distinct architectural generations. Both versions s
 
 ## Live Demo
 
-<div align="center">
-
-### **[Play AlphaZ0 in your browser →](https://alphaz0.onrender.com)**
-
-</div>
-
-A lightweight browser interface mirroring the desktop experience — built with plain HTML/CSS/JS ([chess.js](https://github.com/jhlywa/chess.js) for rules, [chessboard.js](https://chessboardjs.com/) for the board), deployed as a static site on Render.
-
-| Mode | Description |
-|:---|:---|
-| **Pass & Play** | Two players share the board locally |
-| **vs AlphaZ0** | Play against the bot as either color |
+| Version | Link | Description |
+|:---|:---|:---|
+| **v1 — Static** | [alphaz0.onrender.com](https://alphaz0.onrender.com) | Pure frontend — bot uses random moves (no backend) |
+| **v2 — FastAPI + C++** | [alphaz0-2.onrender.com](https://alphaz0-2.onrender.com) | Full engine — real MCTS bot running server-side |
 
 **Interface features:** Click or drag to move · Legal move highlighting · King's square flags red when in check · Promotion picker (Q R B N)
 
-> [!TIP]
-> The demo's listed Elo (~100 on chess.com scale) reflects the currently deployed checkpoint — it updates as training progresses. See the [Elo mapping table](#policy-loss-as-strength-indicator) for what different training stages correspond to.
+> The v2 demo runs at approximately **~100 Elo** (chess.com scale) — an early checkpoint. Strength increases as training progresses.
 
 ---
 

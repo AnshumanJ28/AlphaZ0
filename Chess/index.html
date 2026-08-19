@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -670,6 +670,9 @@ themeToggleBtn.addEventListener('click', () => {
   }
 });
 
+// Set initial toggle button text to match default dark mode
+themeToggleBtn.textContent = 'Switch to Light Mode';
+
 /* ---------------- Draggability / turn gating ---------------- */
 
 function canMoveNow(pieceColor){
@@ -969,15 +972,10 @@ fetch(API_URL + '/health')
     backendAvailable = true;
     const cppTag = data.cpp_core ? ' · C++' : '';
     console.log(`[AlphaZ0] Backend connected (${data.device}${cppTag}, ${data.sims_default} sims)`);
-    // Update the mode button to show real sims count
-    const botBtn = document.querySelector('[data-mode="bot"]');
-    if (botBtn) botBtn.textContent = `vs AlphaZ0 (${data.sims_default})`;
   })
   .catch(() => {
     backendAvailable = false;
     console.warn('[AlphaZ0] Backend not available — using random moves');
-    const botBtn = document.querySelector('[data-mode="bot"]');
-    if (botBtn) botBtn.textContent = 'vs AlphaZ0 (offline)';
   });
 
 /* ---------------- Engine's Inner Monologue ----------------
