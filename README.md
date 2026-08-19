@@ -140,7 +140,7 @@ AlphaZ0 has gone through two distinct architectural generations. Both versions s
 > [!IMPORTANT]
 > v2 falls back to the pure-Python stack automatically if the compiled extension (`alphaz0_cpp.pyd`) is not found. You can always run `app.py` without building the C++ module — it will just be slower.
 
-> **Browse v2 (current `main`):** [`github.com/AnshumanJ28/AlphaZ0`](https://github.com/AnshumanJ28/AlphaZ0)
+> **Browse v2 (current `main`):** [`github.com/AnshumanJ28/AlphaZ0`](https://alphaz0-2.onrender.com/)
 
 </details>
 
