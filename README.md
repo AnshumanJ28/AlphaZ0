@@ -198,80 +198,10 @@ AlphaZ0 has gone through two distinct architectural generations. Both versions s
 ### End-to-End Data Flow
 
 ```mermaid
-flowchart TB
-    subgraph CLIENT["Client Layer"]
-        direction LR
-        WEB["Web UI<br/><i>index.html</i><br/>chess.js · chessboard.js"]
-        DESKTOP["Desktop UI<br/><i>chesmain.py</i><br/>Pygame"]
-    end
-
-    subgraph SERVER["Web Backend (v2)"]
-        direction TB
-        API["FastAPI Server<br/><i>app.py</i><br/>uvicorn · /get_move endpoint"]
-        CPP_CHECK{"C++ core<br/>available?"}
-        API --> CPP_CHECK
-    end
-
-    subgraph CPP_CORE["C++ Core — alphaz0_cpp.pyd (v2)"]
-        direction TB
-        CPP_RULES["Chess Engine<br/><i>chess_engine.hpp</i><br/>Native C++17 move gen"]
-        CPP_ENC["Board Encoder<br/><i>board_encoder.hpp</i><br/>GameState → float[1152]"]
-        CPP_MCTS["MCTS Search<br/><i>mcts.hpp</i><br/>PUCT · C++ node tree"]
-        CPP_SP["Self-Play Loop<br/><i>self_play.hpp</i><br/>(s, π, z) collection"]
-        CPP_RULES --> CPP_ENC
-        CPP_ENC --> CPP_MCTS
-        CPP_MCTS --> CPP_SP
-    end
-
-    subgraph PY_FALLBACK["Python Fallback (v1 stack)"]
-        direction TB
-        RULES["Chess Rules<br/><i>chesseng.py</i>"]
-        ENCODER["Board Encoder<br/><i>BoardEncoder.py</i>"]
-        PY_MCTS["MCTS<br/><i>mcts.py</i>"]
-        RULES --> ENCODER --> PY_MCTS
-    end
-
-    subgraph BRAIN["Neural Intelligence"]
-        direction TB
-        NN["Neural Network<br/><i>NeuralNet.py</i><br/>ResNet · Policy + Value Heads"]
-    end
-
-    subgraph TRAINING["Training Pipeline"]
-        direction TB
-        SELFPLAY["Self-Play<br/><i>Train.py</i><br/>Uses C++ loop when available"]
-        BUFFER["Replay Buffer<br/>Thread-safe deque"]
-        A3C["A3C Workers ×4<br/>GAE advantages"]
-        TRAINER["Batch Trainer<br/>Policy CE + Value MSE"]
-        SELFPLAY --> BUFFER
-        BUFFER --> TRAINER
-        A3C -->|"Push gradients"| TRAINER
-    end
-
-    subgraph CHECKPOINTS["Model Artifacts"]
-        BEST["chess_net_best.pt"]
-        FINAL["chess_net_final.pt"]
-        ITER["chess_net_iter_N.pt"]
-    end
-
-    WEB -->|"REST /get_move"| API
-    DESKTOP -->|"Direct call"| PY_MCTS
-    CPP_CHECK -->|"Yes — fast path"| CPP_CORE
-    CPP_CHECK -->|"No — fallback"| PY_FALLBACK
-    CPP_MCTS -->|"NN eval callback"| NN
-    PY_MCTS <-->|"Policy + Value"| NN
-    CPP_SP -->|"Experiences"| SELFPLAY
-    API -->|"Best move"| WEB
-    TRAINER -->|"Updated weights"| NN
-    TRAINER -->|"Save"| CHECKPOINTS
-    CHECKPOINTS -->|"Load"| NN
-
-    style CLIENT fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#eee
-    style SERVER fill:#1a1a2e,stroke:#ff9f43,stroke-width:2px,color:#eee
-    style CPP_CORE fill:#0d2137,stroke:#00b4d8,stroke-width:2px,color:#eee
-    style PY_FALLBACK fill:#1a1a2e,stroke:#533483,stroke-width:1px,color:#aaa
-    style BRAIN fill:#1a1a2e,stroke:#533483,stroke-width:2px,color:#eee
-    style TRAINING fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#eee
-    style CHECKPOINTS fill:#1a1a2e,stroke:#16213e,stroke-width:2px,color:#eee
+flowchart LR
+    WEB["Web UI"] -->|HTTP/REST| API["FastAPI Server"]
+    API -->|pybind11| CPP["C++ Core<br/>(MCTS & Rules)"]
+    CPP <-->|"NN Eval<br/>(Callback)"| NN["PyTorch<br/>ResNet"]
 ```
 
 ### The Self-Improvement Loop
